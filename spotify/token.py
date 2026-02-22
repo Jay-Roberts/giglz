@@ -96,7 +96,9 @@ class TokenManager:
         Returns:
             Token info dict with access_token, refresh_token, etc.
         """
-        return self._oauth.get_access_token(code, as_dict=True)
+        # check_cache=False ensures we actually exchange the code
+        # instead of returning a cached token from a different user
+        return self._oauth.get_access_token(code, as_dict=True, check_cache=False)
 
     def save_token(self, token_info: dict) -> None:
         """Save token info to cache file.
