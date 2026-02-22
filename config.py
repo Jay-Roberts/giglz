@@ -15,6 +15,7 @@ APP_DISPLAY_NAME = "GIGLZ"
 # Data directory - allows separating dev and prod data
 # Usage: GIGLZ_DATA_DIR=data-dev uv run python app.py
 DATA_DIR = Path(os.environ.get("GIGLZ_DATA_DIR", "data")).resolve()
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_NAME = f"{APP_NAME}.db"
 SQL_ALCHEMY_DB_URI = DATA_DIR / DB_NAME
 
