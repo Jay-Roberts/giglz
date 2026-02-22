@@ -1,0 +1,24 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.3/schema.json",
+  "files": {
+    "includes": ["static/js/**/*.js"]
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "useTemplate": "off"
+      },
+      "complexity": {
+        "useArrowFunction": "off"
+      },
+      "suspicious": {
+        "noRedundantUseStrict": "off"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": false
+  }
+}

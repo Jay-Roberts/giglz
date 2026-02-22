@@ -1,0 +1,55 @@
+[project]
+name = "giglz"
+version = "0.1.0"
+description = "Spotify-integrated Flask web app for scouting concert shows"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.1.2",
+    "flask-migrate>=4.1.0",
+    "flask-sqlalchemy>=3.1.1",
+    "gunicorn>=23.0.0",
+    "httpx>=0.28.1",
+    "openai>=2.17.0",
+    "pydantic>=2.12.5",
+    "python-dotenv>=1.2.1",
+    "rapidfuzz>=3.14.3",
+    "spotipy>=2.25.2", # Watch for update after Spotify's Feb 2026 API changes
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+    "pyright>=1.1.408",
+    "pytest>=9.0.2",
+    "ruff>=0.15.0",
+]
+docs = [
+    "mkdocs>=1.6.1,<2",
+    "mkdocs-gen-files>=0.6.0",
+    "mkdocs-literate-nav>=0.6.2",
+    "mkdocs-material>=9.7.1",
+    "mkdocstrings[python]>=1.0.3",
+]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+exclude = ["notes/", ".venv/", "site/", "docs/", "migrations/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+exclude = ["migrations/"]
+
+[tool.ruff.lint]
+select = ["D"]  # pydocstyle rules
+ignore = ["D107"]  # __init__ docstrings redundant with class docstring
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

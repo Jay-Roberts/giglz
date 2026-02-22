@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "macros.html" import show_card %}
+
+{% block title %}{{ playlist_name }} — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <a href="{{ url_for('home') }}" class="text-gig-cyan hover:text-gig-pink transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <h2 class="font-pixel text-xl text-gig-pink">{{ playlist_name | upper }}</h2>
+        </div>
+        {% if with_player %}
+        <a href="{{ url_for('playlist_shows_only', name=playlist_name) }}"
+           class="text-xs text-gray-400 hover:text-gig-cyan transition font-mono">
+            Share: /shows →
+        </a>
+        {% else %}
+        <span class="text-xs bg-gig-cyan/20 text-gig-cyan px-2 py-1 rounded font-mono">
+            Cards only — refresh anytime
+        </span>
+        {% endif %}
+    </div>
+
+    <!-- Stats -->
+    <div class="flex gap-4 text-sm text-gray-400 font-mono">
+        <span>{{ shows | length }} shows</span>
+        <span class="text-gig-cyan/40">//</span>
+        <span>{{ shows | map(attribute='loved_tracks') | map('length') | sum }} ♡</span>
+    </div>
+
+    <!-- Show Cards -->
+    <div class="space-y-3">
+        {% for show in shows %}
+            {{ show_card(show) }}
+        {% endfor %}
+    </div>
+
+    <!-- Spacer for bottom player bar -->
+    {% if with_player %}
+    <div class="h-20"></div>
+    {% endif %}
+</div>
+
+{% if not with_player %}
+<script>
+// Disable player initialization for shows-only view
+window.onSpotifyWebPlaybackSDKReady = function() {
+    console.log('Player disabled on shows-only view');
+};
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'gig': {
+                            'dark': '#1a0a2e',
+                            'darker': '#0d0518',
+                            'card': '#1f1035',
+                            'pink': '#ff6eb4',
+                            'pink-dim': '#cc5890',
+                            'cyan': '#00f5ff',
+                            'cyan-dim': '#00c4cc',
+                            'purple': '#bf5fff',
+                            'orange': '#ff7e5f',
+                            'coral': '#feb47b',
+                        }
+                    },
+                    fontFamily: {
+                        'pixel': ['"Press Start 2P"', 'monospace'],
+                        'mono': ['"Space Mono"', 'monospace'],
+                    },
+                    animation: {
+                        'glitch': 'glitch 0.3s ease-in-out infinite',
+                        'scanline': 'scanline 8s linear infinite',
+                        'flicker': 'flicker 0.15s infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Subtle glow effects */
+        .glow-pink {
+            box-shadow: 0 0 20px rgba(255, 110, 180, 0.2);
+        }
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(0, 245, 255, 0.2);
+        }
+        .text-glow-pink {
+            text-shadow: 0 0 20px rgba(255, 110, 180, 0.5);
+        }
+        .text-glow-cyan {
+            text-shadow: 0 0 15px rgba(0, 245, 255, 0.4);
+        }
+
+        /* Focus glow */
+        input:focus, textarea:focus {
+            box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
+        }
+
+        /* Grooving animation for importing shows */
+        .grooving {
+            animation: groove 1.5s ease-in-out infinite;
+        }
+        @keyframes groove {
+            0%, 100% {
+                border-color: rgba(0, 245, 255, 0.2);
+                box-shadow: 0 0 0 rgba(255, 110, 180, 0);
+            }
+            50% {
+                border-color: rgba(255, 110, 180, 0.4);
+                box-shadow: 0 0 15px rgba(255, 110, 180, 0.2);
+            }
+        }
+    </style>
+</head>
+<body class="h-full bg-gig-dark text-gray-100 font-mono min-h-screen" id="page-body">
+    <div class="min-h-full">
+        <nav class="border-b border-gig-pink/20">
+            <div class="max-w-4xl mx-auto px-4 py-6 flex items-center justify-between">
+                <h1 class="font-pixel text-3xl text-gig-pink text-glow-pink">{{ app_display_name }}</h1>
+                <div class="flex items-center gap-4">
+                    {% if current_user_id %}
+                        <span class="text-sm text-gray-400">
+                            {{ current_user_name }}
+                            {% if is_host %}<span class="text-gig-cyan">(host)</span>{% endif %}
+                        </span>
+                        <form action="/logout" method="POST" class="inline">
+                            <button type="submit" class="text-sm text-gray-400 hover:text-gig-pink transition">
+                                Logout
+                            </button>
+                        </form>
+                    {% else %}
+                        <a href="/login" class="text-sm text-gig-cyan hover:text-gig-pink transition">
+                            Login with Spotify
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </nav>
+
+        <main class="max-w-4xl mx-auto px-4 py-8 relative z-10">
+            {% if share_on_network %}
+            <div class="mb-6 bg-amber-500/20 border border-amber-500/50 rounded px-4 py-3 text-sm text-amber-400">
+                <span class="font-bold">Sharing on local network</span> — Trusted devices only.
+                Your Spotify token is accessible to anyone on this WiFi.
+            </div>
+            {% endif %}
+
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="mb-6 space-y-2">
+                        {% for message in messages %}
+                            <div class="bg-gig-card border border-gig-cyan/30 rounded px-4 py-3 text-sm text-gig-cyan">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <!-- Dim overlay (behind expanded player) -->
+    <div id="player-dim" class="fixed inset-0 z-40 bg-black/50 hidden transition-opacity"></div>
+
+    <!-- Expanded Player (slides up from bottom) -->
+    <div id="player-expanded" class="fixed bottom-0 left-0 right-0 z-50 bg-gig-darker border-t border-gig-pink/30 transform translate-y-full transition-transform duration-300 ease-out"
+         style="height: 55vh;">
+        <!-- Collapse button -->
+        <button id="btn-collapse" class="absolute top-4 right-4 text-gray-400 hover:text-gig-cyan transition">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+        </button>
+
+        <div class="h-full flex items-center justify-center px-6">
+            <div class="flex gap-8 items-center max-w-3xl w-full">
+                <!-- Left: Album art + info + controls -->
+                <div class="flex flex-col items-center">
+                    <img id="expanded-album-art" src="" alt="" class="w-48 h-48 rounded-lg bg-gig-card shadow-2xl">
+                    <div id="expanded-track-name" class="text-lg text-gray-100 mt-4 text-center font-bold truncate max-w-[200px]"></div>
+                    <div id="expanded-artist-name" class="text-sm text-gray-400 mt-1 text-center truncate max-w-[200px]"></div>
+
+                    <!-- Controls -->
+                    <div class="flex items-center gap-3 mt-6">
+                        <button id="expanded-btn-prev" class="text-gray-400 hover:text-gig-cyan transition">
+                            <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20"><path d="M8.445 14.832A1 1 0 0010 14v-2.798l5.445 3.63A1 1 0 0017 14V6a1 1 0 00-1.555-.832L10 8.798V6a1 1 0 00-1.555-.832l-6 4a1 1 0 000 1.664l6 4z"/></svg>
+                        </button>
+                        <button id="expanded-btn-play" class="w-14 h-14 rounded-full bg-gig-pink text-gig-darker flex items-center justify-center hover:bg-gig-cyan transition">
+                            <svg id="expanded-icon-play" class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
+                            <svg id="expanded-icon-pause" class="w-7 h-7 hidden" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                        </button>
+                        <button id="expanded-btn-next" class="text-gray-400 hover:text-gig-cyan transition">
+                            <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20"><path d="M4.555 5.168A1 1 0 003 6v8a1 1 0 001.555.832L10 11.202V14a1 1 0 001.555.832l6-4a1 1 0 000-1.664l-6-4A1 1 0 0010 6v2.798L4.555 5.168z"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right: GIANT heart -->
+                <div class="flex flex-col items-center justify-center flex-1">
+                    <button id="btn-love-big" class="group relative">
+                        <svg id="big-heart-empty" class="w-40 h-40 text-gray-500 group-hover:text-gig-pink transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                        </svg>
+                        <svg id="big-heart-filled" class="w-40 h-40 hidden text-gig-pink" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                        </svg>
+                        <!-- Broken heart: greyed out, not from scouted show -->
+                        <svg id="big-heart-broken" class="w-40 h-40 hidden text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 8l-1 4 2-1-1 5"/>
+                        </svg>
+                    </button>
+                    <!-- Emoticon feedback -->
+                    <div id="love-feedback" class="text-5xl mt-2 h-14 font-mono text-gig-pink"></div>
+                    <div id="not-scouted-msg" class="hidden text-sm text-gray-500 mt-2">Not from a scouted show</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Bar (fixed bottom) -->
+    <div id="player-bar" class="fixed bottom-0 left-0 right-0 z-50 bg-gig-darker border-t border-gig-pink/30 px-4 py-3 hidden">
+        <div class="flex items-center justify-between max-w-4xl mx-auto gap-4">
+
+            <!-- Left: Album art + Track info -->
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+                <div class="relative w-12 h-12 flex-shrink-0">
+                    <img id="player-album-art" src="" alt="" class="w-12 h-12 rounded bg-gig-card">
+                    <div id="album-loading" class="absolute inset-0 flex items-center justify-center bg-gig-card rounded">
+                        <svg class="w-6 h-6 text-gig-pink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="min-w-0">
+                    <div id="player-track-name" class="text-sm text-gray-100 truncate">Connect Spotify to {{ app_name }} Player</div>
+                    <div id="player-artist-name" class="text-xs text-gray-400 truncate"></div>
+                </div>
+            </div>
+
+            <!-- Center: Main controls -->
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="text-gray-400 hover:text-gig-cyan transition">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M8.445 14.832A1 1 0 0010 14v-2.798l5.445 3.63A1 1 0 0017 14V6a1 1 0 00-1.555-.832L10 8.798V6a1 1 0 00-1.555-.832l-6 4a1 1 0 000 1.664l6 4z"/></svg>
+                </button>
+                <button id="btn-play" class="w-10 h-10 rounded-full bg-gig-pink text-gig-darker flex items-center justify-center hover:bg-gig-cyan transition">
+                    <svg id="icon-play" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
+                    <svg id="icon-pause" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                </button>
+                <button id="btn-next" class="text-gray-400 hover:text-gig-cyan transition">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4.555 5.168A1 1 0 003 6v8a1 1 0 001.555.832L10 11.202V14a1 1 0 001.555.832l6-4a1 1 0 000-1.664l-6-4A1 1 0 0010 6v2.798L4.555 5.168z"/></svg>
+                </button>
+            </div>
+
+            <!-- Right: Shuffle, Repeat, Love -->
+            <div class="flex items-center gap-3">
+                <button id="btn-shuffle" class="relative text-gray-400 hover:text-gig-cyan transition" title="Shuffle">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+                    <span id="shuffle-dot" class="hidden absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-gig-cyan rounded-full"></span>
+                </button>
+                <button id="btn-repeat" class="relative text-gray-400 hover:text-gig-cyan transition" title="Repeat">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+                    <span id="repeat-dot" class="hidden absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-gig-cyan rounded-full"></span>
+                    <span id="repeat-one" class="hidden absolute -top-1 -right-1 text-[8px] font-bold text-gig-cyan">1</span>
+                </button>
+                <button id="btn-love" class="text-gray-400 hover:text-gig-pink transition" title="Love this track">
+                    <svg id="icon-heart-empty" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    <svg id="icon-heart-filled" class="w-5 h-5 hidden text-gig-pink" fill="currentColor" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    <!-- Broken heart: greyed out, not from scouted show -->
+                    <svg id="icon-heart-broken" class="w-5 h-5 hidden text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Not from a scouted show">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8l-1 4 2-1-1 5"/>
+                    </svg>
+                </button>
+                <button id="btn-expand" class="text-gray-400 hover:text-gig-cyan transition" title="Expand player">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Modules -->
+    <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/player.js') }}"></script>
+
+    <script>
+    // Initialize player on pages that have the player bar
+    if (document.getElementById('player-bar')) {
+        GiglzPlayer.init();
+    }
+
+    // Page refresh warning when playing or importing
+    window.addEventListener('beforeunload', function(e) {
+        const playerActive = window.GiglzPlayer?.isPlaying?.() ?? false;
+        const importActive = window.GiglzImport?.isImporting?.() ?? false;
+
+        if (playerActive || importActive) {
+            e.preventDefault();
+            return '';
+        }
+    });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
