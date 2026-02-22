@@ -1,2 +1,2 @@
-release: flask db upgrade
+release: mkdir -p data && flask db upgrade
 web: gunicorn app:app --bind 0.0.0.0:$PORT
