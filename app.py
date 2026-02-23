@@ -300,14 +300,11 @@ def _scout_submission(
     if all_track_uris:
         spotify.add_tracks_to_playlist(playlist.id, all_track_uris)
 
-    show = Show(
+    show = Show.from_submission(
         submission=submission,
-        id=str(uuid.uuid4()),
-        created_at=datetime.now(timezone.utc).isoformat(),
         artist_spotify_ids=artist_spotify_ids,
         track_uris=all_track_uris,
-        playlist_id=playlist.id,
-        playlist_name=playlist_name,
+        created_at=datetime.now(timezone.utc).isoformat(),
     )
 
     return show, not_found
@@ -316,7 +313,7 @@ def _scout_submission(
 @app.route("/")
 def home():
     """Render the home page with import forms and playlist list."""
-    playlists = get_db().get_playlists()
+    playlists = get_db().get_all_playlists()
     return flask.render_template("home.html", playlists=playlists)
 
 
@@ -436,7 +433,7 @@ def process_single_url(url: str) -> tuple[Show | None, ImportedUrl]:
             url=normalized,
             status=ImportStatus.SUCCESS,
             show_id=show.id,
-            artist_count=len(show.submission.artists),
+            artist_count=len(show.artists),
             track_count=len(show.track_uris),
             error=None,
             attempted_at=datetime.now(timezone.utc).isoformat(),
@@ -577,9 +574,9 @@ def import_shows_stream():
                 results["tracks"] += len(show.track_uris)  # type: ignore
                 event["show"] = {
                     "id": show.id,  # type: ignore
-                    "artists": show.submission.artists,  # type: ignore
-                    "venue": show.submission.venue,  # type: ignore
-                    "date": show.submission.date,  # type: ignore
+                    "artists": [a.name for a in show.artists],  # type: ignore
+                    "venue": show.venue,  # type: ignore
+                    "date": show.date,  # type: ignore
                     "track_count": len(show.track_uris),  # type: ignore
                 }
             else:  # FAILED

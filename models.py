@@ -10,7 +10,7 @@ from pydantic import BaseModel, model_validator
 class ShowSubmission(BaseModel):
     """User-provided show metadata from the /add-show form."""
 
-    artists: list[str]  # artist names as entered
+    artists: list[str]
     venue: str
     date: str
     ticket_url: str | None = None
@@ -24,41 +24,75 @@ class LovedTrack(BaseModel):
     artist: str
 
 
+class Artist(BaseModel):
+    """An artist performing at a show."""
+
+    name: str
+    spotify_id: str | None = None
+
+
 class Show(BaseModel):
     """A scouted show with Spotify data, ready for persistence.
 
     Created by enriching a ShowSubmission with Spotify lookup results.
-
-    NOTE: Multi-show same day not supported (same artists, different times).
+    Shows can belong to multiple playlists via PlaylistShow.
     """
 
-    submission: ShowSubmission
-    id: str = ""  # computed from natural key
+    id: str = ""
+    venue: str
+    date: str
+    ticket_url: str | None = None
     created_at: str
-    # populated after Spotify lookup:
-    artist_spotify_ids: list[str]  # parallel to artists list, "" if not found
-    track_uris: list[str]  # all track URIs added to playlist
-    playlist_id: str  # which playlist these tracks landed in
-    playlist_name: str = ""  # human-readable playlist name for URL routing
-    # user interactions:
-    loved_tracks: list[LovedTrack] = []
+    artists: list[Artist]
+    track_uris: list[str] = []
 
     @model_validator(mode="after")
     def compute_id(self) -> "Show":
         """Generate deterministic ID from natural key.
 
-        Uses sorted artist_spotify_ids + date to ensure:
+        Uses sorted artist spotify_ids + date to ensure:
         - Same artists + date = same ID (regardless of import order)
         - Different artist order = same ID (sorted)
         """
         if not self.id:
-            # Filter out empty strings (artists not found on Spotify)
-            valid_ids = [aid for aid in self.artist_spotify_ids if aid]
+            valid_ids = [a.spotify_id for a in self.artists if a.spotify_id]
             if not valid_ids:
-                raise ValueError("Show requires at least one valid artist_spotify_id")
-            key_parts = sorted(valid_ids) + [self.submission.date]
+                raise ValueError("Show requires at least one artist with spotify_id")
+            key_parts = sorted(valid_ids) + [self.date]
             self.id = hashlib.sha256(json.dumps(key_parts).encode()).hexdigest()[:16]
         return self
+
+    @classmethod
+    def from_submission(
+        cls,
+        submission: ShowSubmission,
+        artist_spotify_ids: list[str],
+        track_uris: list[str],
+        created_at: str,
+    ) -> "Show":
+        """Create a Show from a submission and Spotify lookup results."""
+        artists = [
+            Artist(name=name, spotify_id=sid or None)
+            for name, sid in zip(submission.artists, artist_spotify_ids)
+        ]
+        return cls(
+            venue=submission.venue,
+            date=submission.date,
+            ticket_url=submission.ticket_url,
+            created_at=created_at,
+            artists=artists,
+            track_uris=track_uris,
+        )
+
+
+class Playlist(BaseModel):
+    """A user-created collection of shows."""
+
+    id: str
+    name: str
+    owner_user_id: str
+    created_at: str
+    spotify_playlist_id: str | None = None
 
 
 class ImportStatus(str, enum.Enum):
@@ -96,8 +130,8 @@ class LoveTrackResponse(BaseModel):
 
     loved: bool
     uri: str
-    shows: list[str]  # show IDs containing this track
-    shows_updated: list[ShowLovedCount]  # for JS to update cards
+    shows: list[str]
+    shows_updated: list[ShowLovedCount]
 
 
 class TrackStatusResponse(BaseModel):
@@ -105,4 +139,4 @@ class TrackStatusResponse(BaseModel):
 
     uri: str
     loved: bool
-    shows: list[str]  # show IDs containing this track
+    shows: list[str]

@@ -7,24 +7,21 @@ import pytest
 
 from app import app
 from extensions import db as flask_db
-from db import Database
+from db import Database, DEFAULT_PLAYLIST_NAME
 from models import (
+    Artist,
     Show,
-    ShowSubmission,
     ImportedUrl,
     ImportStatus,
 )
 
 
-# --- Show constants ---
+# --- Constants ---
 
 DEFAULT_SHOW_ID = "test-id-1"
 DEFAULT_VENUE = "The Earl"
 DEFAULT_DATE = "2026-03-15"
 DEFAULT_CREATED_AT = "2026-02-07T12:00:00"
-DEFAULT_PLAYLIST_ID = "playlist-abc"
-
-# --- Import constants ---
 
 DEFAULT_URL = "https://songkick.com/concerts/123"
 DEFAULT_TIMESTAMP = "2026-02-13T12:00:00"
@@ -39,19 +36,25 @@ def _make_show(
     show_id: str = DEFAULT_SHOW_ID,
     venue: str = DEFAULT_VENUE,
     date: str = DEFAULT_DATE,
-    artist_ids: list[str] | None = None,
-    playlist_name: str = "",
+    artist_spotify_ids: list[str] | None = None,
     track_uris: list[str] | None = None,
 ) -> Show:
     """Create a Show for testing."""
+    if artist_spotify_ids is None:
+        artist_spotify_ids = [f"spotify:artist:{i}" for i in range(len(artists))]
+
+    artist_list = [
+        Artist(name=name, spotify_id=sid)
+        for name, sid in zip(artists, artist_spotify_ids)
+    ]
+
     return Show(
-        submission=ShowSubmission(artists=artists, venue=venue, date=date),
         id=show_id,
+        venue=venue,
+        date=date,
         created_at=DEFAULT_CREATED_AT,
-        artist_spotify_ids=artist_ids or ["spotify:artist:fake"] * len(artists),
+        artists=artist_list,
         track_uris=track_uris or ["spotify:track:fake1", "spotify:track:fake2"],
-        playlist_id=DEFAULT_PLAYLIST_ID,
-        playlist_name=playlist_name,
     )
 
 
@@ -97,6 +100,111 @@ def db(test_app) -> Database:
     return Database()
 
 
+# --- Playlist Tests ---
+
+
+class TestPlaylistCRUD:
+    """Create, read, update playlists."""
+
+    def test_create_playlist(self, db: Database) -> None:
+        playlist = db.create_playlist("My Playlist", "user-123")
+
+        assert playlist.name == "My Playlist"
+        assert playlist.owner_user_id == "user-123"
+        assert playlist.id is not None
+        assert playlist.spotify_playlist_id is None
+
+    def test_get_playlist_by_id(self, db: Database) -> None:
+        created = db.create_playlist("Test", "user-1")
+        retrieved = db.get_playlist(created.id)
+
+        assert retrieved is not None
+        assert retrieved.id == created.id
+        assert retrieved.name == "Test"
+
+    def test_get_playlist_not_found(self, db: Database) -> None:
+        assert db.get_playlist("nonexistent") is None
+
+    def test_get_playlist_by_name(self, db: Database) -> None:
+        db.create_playlist("My Shows", "user-1")
+        retrieved = db.get_playlist_by_name("My Shows")
+
+        assert retrieved is not None
+        assert retrieved.name == "My Shows"
+
+    def test_get_playlist_by_name_case_insensitive(self, db: Database) -> None:
+        db.create_playlist("My Shows", "user-1")
+        retrieved = db.get_playlist_by_name("my shows")
+
+        assert retrieved is not None
+        assert retrieved.name == "My Shows"
+
+    def test_get_all_playlists(self, db: Database) -> None:
+        db.create_playlist("Playlist A", "user-1")
+        db.create_playlist("Playlist B", "user-2")
+
+        playlists = db.get_all_playlists()
+
+        assert len(playlists) == 2
+        names = {p.name for p in playlists}
+        assert names == {"Playlist A", "Playlist B"}
+
+    def test_get_or_create_default_playlist_creates(self, db: Database) -> None:
+        playlist = db.get_or_create_default_playlist("user-1")
+
+        assert playlist.name == DEFAULT_PLAYLIST_NAME
+        assert playlist.owner_user_id == "user-1"
+
+    def test_get_or_create_default_playlist_returns_existing(
+        self, db: Database
+    ) -> None:
+        first = db.get_or_create_default_playlist("user-1")
+        second = db.get_or_create_default_playlist("user-2")
+
+        assert first.id == second.id
+
+    def test_update_spotify_playlist_id(self, db: Database) -> None:
+        playlist = db.create_playlist("Test", "user-1")
+        db.update_playlist_spotify_id(playlist.id, "spotify:playlist:abc")
+
+        retrieved = db.get_playlist(playlist.id)
+        assert retrieved is not None
+        assert retrieved.spotify_playlist_id == "spotify:playlist:abc"
+
+    def test_get_playlist_by_name_returns_most_recent(self, db: Database) -> None:
+        """When multiple playlists have the same name, return most recent."""
+        import time
+
+        db.create_playlist("Scouting", "user-1")
+        time.sleep(0.01)  # Ensure different timestamps
+        second = db.create_playlist("Scouting", "user-1")
+
+        retrieved = db.get_playlist_by_name("Scouting")
+
+        assert retrieved is not None
+        assert retrieved.id == second.id
+
+    def test_count_playlists_by_name(self, db: Database) -> None:
+        db.create_playlist("Scouting", "user-1")
+        db.create_playlist("Scouting", "user-2")
+        db.create_playlist("Other", "user-1")
+
+        assert db.count_playlists_by_name("Scouting") == 2
+        assert db.count_playlists_by_name("scouting") == 2  # case insensitive
+        assert db.count_playlists_by_name("Other") == 1
+        assert db.count_playlists_by_name("Nonexistent") == 0
+
+    def test_clear_spotify_playlist_id(self, db: Database) -> None:
+        """Can clear spotify_playlist_id when Spotify playlist is deleted."""
+        playlist = db.create_playlist("Test", "user-1")
+        db.update_playlist_spotify_id(playlist.id, "spotify:playlist:abc")
+        db.update_playlist_spotify_id(playlist.id, None)
+
+        retrieved = db.get_playlist(playlist.id)
+        assert retrieved is not None
+        assert retrieved.spotify_playlist_id is None
+
+
 # --- Show Tests ---
 
 
@@ -110,7 +218,7 @@ class TestShowSaveAndRetrieve:
         all_shows = db.get_all_shows()
         assert len(all_shows) == 1
         assert all_shows[0].id == show.id
-        assert all_shows[0].submission.artists == ["Militarie Gun"]
+        assert all_shows[0].artists[0].name == "Militarie Gun"
 
     def test_save_multiple_shows(self, db: Database) -> None:
         db.save_show(_make_show(["Kitty Ray"], show_id="id-1"))
@@ -119,20 +227,22 @@ class TestShowSaveAndRetrieve:
         all_shows = db.get_all_shows()
         assert len(all_shows) == 2
 
-    def test_submission_fields_round_trip(self, db: Database) -> None:
+    def test_fields_round_trip(self, db: Database) -> None:
         show = _make_show(
             ["Kitty Ray", "ZULU"],
             venue="Barboza",
             date="2026-04-01",
         )
-        show.submission.ticket_url = "https://tickets.example.com"
+        show.ticket_url = "https://tickets.example.com"
         db.save_show(show)
 
         retrieved = db.get_all_shows()[0]
-        assert retrieved.submission.venue == "Barboza"
-        assert retrieved.submission.date == "2026-04-01"
-        assert retrieved.submission.ticket_url == "https://tickets.example.com"
-        assert retrieved.submission.artists == ["Kitty Ray", "ZULU"]
+        assert retrieved.venue == "Barboza"
+        assert retrieved.date == "2026-04-01"
+        assert retrieved.ticket_url == "https://tickets.example.com"
+        assert len(retrieved.artists) == 2
+        assert retrieved.artists[0].name == "Kitty Ray"
+        assert retrieved.artists[1].name == "ZULU"
 
     def test_track_uris_round_trip(self, db: Database) -> None:
         show = _make_show(["Band A"])
@@ -140,6 +250,15 @@ class TestShowSaveAndRetrieve:
 
         retrieved = db.get_all_shows()[0]
         assert retrieved.track_uris == ["spotify:track:fake1", "spotify:track:fake2"]
+
+    def test_artist_order_preserved(self, db: Database) -> None:
+        show = _make_show(["Headliner", "Opener 1", "Opener 2"])
+        db.save_show(show)
+
+        retrieved = db.get_show(show.id)
+        assert retrieved is not None
+        names = [a.name for a in retrieved.artists]
+        assert names == ["Headliner", "Opener 1", "Opener 2"]
 
 
 class TestShowGetById:
@@ -167,113 +286,79 @@ class TestShowEmptyDatabase:
         assert db.get_show("anything") is None
 
 
-class TestShowDeduplication:
-    """Shows with same ID are deduplicated (upsert behavior)."""
+class TestShowUpsert:
+    """Shows with same ID are upserted."""
 
     def test_same_id_upserts(self, db: Database) -> None:
-        """Re-saving show with same ID updates existing show, not duplicate."""
-        show1 = _make_show(
-            ["Band A"],
-            show_id="",
-            artist_ids=["spotify:artist:abc123"],
-            date="2026-03-15",
-        )
-        show2 = _make_show(
-            ["Band A"],
-            show_id="",
-            artist_ids=["spotify:artist:abc123"],
-            date="2026-03-15",
-        )
+        show1 = _make_show(["Band A"], show_id="same-id")
+        show2 = _make_show(["Band B"], show_id="same-id")
 
         db.save_show(show1)
         db.save_show(show2)
 
         all_shows = db.get_all_shows()
-        assert len(all_shows) == 1  # Upserted, not duplicated
-
-    def test_different_ids_creates_two(self, db: Database) -> None:
-        """Different show IDs create separate shows."""
-        show1 = _make_show(
-            ["Band A"],
-            show_id="",
-            artist_ids=["spotify:artist:abc123"],
-            date="2026-03-15",
-        )
-        show2 = _make_show(
-            ["Band A"],
-            show_id="",
-            artist_ids=["spotify:artist:abc123"],
-            date="2026-03-16",  # Different date = different ID
-        )
-
-        db.save_show(show1)
-        db.save_show(show2)
-
-        all_shows = db.get_all_shows()
-        assert len(all_shows) == 2  # Two separate shows
+        assert len(all_shows) == 1
+        assert all_shows[0].artists[0].name == "Band B"
 
 
-class TestShowByPlaylist:
-    """Find shows by playlist name."""
-
-    def test_found(self, db: Database) -> None:
-        db.save_show(_make_show(["Band A"], show_id="id-1", playlist_name="ATL-Feb"))
-        result = db.get_shows_by_playlist("ATL-Feb")
-
-        assert len(result) == 1
-        assert result[0].id == "id-1"
-
-    def test_case_insensitive(self, db: Database) -> None:
-        db.save_show(_make_show(["Band A"], show_id="id-1", playlist_name="ATL-Feb"))
-        result = db.get_shows_by_playlist("atl-feb")
-
-        assert len(result) == 1
-
-    def test_not_found(self, db: Database) -> None:
-        db.save_show(_make_show(["Band A"], show_id="id-1", playlist_name="ATL-Feb"))
-        result = db.get_shows_by_playlist("Seattle-Mar")
-
-        assert len(result) == 0
-
-    def test_multiple_shows_same_playlist(self, db: Database) -> None:
-        db.save_show(_make_show(["Band A"], show_id="id-1", playlist_name="ATL-Feb"))
-        db.save_show(_make_show(["Band B"], show_id="id-2", playlist_name="ATL-Feb"))
-        result = db.get_shows_by_playlist("ATL-Feb")
-
-        assert len(result) == 2
+# --- Playlist-Show Linking Tests ---
 
 
-class TestGetPlaylists:
-    """Get list of unique playlists with counts."""
+class TestPlaylistShowLinking:
+    """Test many-to-many linking."""
 
-    def test_returns_playlists_with_counts(self, db: Database) -> None:
-        db.save_show(_make_show(["Band A"], show_id="id-1", playlist_name="ATL-Feb"))
-        db.save_show(_make_show(["Band B"], show_id="id-2", playlist_name="ATL-Feb"))
-        db.save_show(
-            _make_show(["Band C"], show_id="id-3", playlist_name="Seattle-Mar")
-        )
+    def test_add_show_to_playlist(self, db: Database) -> None:
+        playlist = db.create_playlist("My Shows", "user-1")
+        show = _make_show(["Band A"], show_id="show-1")
+        db.save_show(show)
 
-        playlists = db.get_playlists()
+        db.add_show_to_playlist(playlist.id, show.id, "user-1")
 
+        shows = db.get_shows_for_playlist(playlist.id)
+        assert len(shows) == 1
+        assert shows[0].id == "show-1"
+
+    def test_add_show_to_playlist_idempotent(self, db: Database) -> None:
+        playlist = db.create_playlist("My Shows", "user-1")
+        show = _make_show(["Band A"], show_id="show-1")
+        db.save_show(show)
+
+        db.add_show_to_playlist(playlist.id, show.id, "user-1")
+        db.add_show_to_playlist(playlist.id, show.id, "user-1")
+
+        shows = db.get_shows_for_playlist(playlist.id)
+        assert len(shows) == 1
+
+    def test_show_in_multiple_playlists(self, db: Database) -> None:
+        playlist1 = db.create_playlist("Playlist A", "user-1")
+        playlist2 = db.create_playlist("Playlist B", "user-1")
+        show = _make_show(["Band A"], show_id="show-1")
+        db.save_show(show)
+
+        db.add_show_to_playlist(playlist1.id, show.id, "user-1")
+        db.add_show_to_playlist(playlist2.id, show.id, "user-1")
+
+        playlists = db.get_playlists_for_show(show.id)
         assert len(playlists) == 2
-        atl = next(p for p in playlists if p["name"] == "ATL-Feb")
-        seattle = next(p for p in playlists if p["name"] == "Seattle-Mar")
 
-        assert atl["show_count"] == 2
-        assert seattle["show_count"] == 1
+    def test_remove_show_from_playlist(self, db: Database) -> None:
+        playlist = db.create_playlist("My Shows", "user-1")
+        show = _make_show(["Band A"], show_id="show-1")
+        db.save_show(show)
+        db.add_show_to_playlist(playlist.id, show.id, "user-1")
 
-    def test_skips_shows_without_playlist_name(self, db: Database) -> None:
-        db.save_show(_make_show(["Band A"], show_id="id-1", playlist_name="ATL-Feb"))
-        db.save_show(_make_show(["Band B"], show_id="id-2", playlist_name=""))
+        db.remove_show_from_playlist(playlist.id, show.id)
 
-        playlists = db.get_playlists()
+        shows = db.get_shows_for_playlist(playlist.id)
+        assert len(shows) == 0
 
-        assert len(playlists) == 1
-        assert playlists[0]["name"] == "ATL-Feb"
+    def test_get_shows_for_empty_playlist(self, db: Database) -> None:
+        playlist = db.create_playlist("Empty", "user-1")
+        shows = db.get_shows_for_playlist(playlist.id)
+        assert shows == []
 
-    def test_empty_when_no_shows(self, db: Database) -> None:
-        playlists = db.get_playlists()
-        assert playlists == []
+
+# --- Track Tests ---
 
 
 class TestTrackScouted:
@@ -385,7 +470,6 @@ class TestRecordImportWithShow:
 
         db.record_import(record, show)
 
-        # Both saved
         assert db.get_import(DEFAULT_URL) is not None
         assert db.get_show("show-123") is not None
 
@@ -416,9 +500,8 @@ class TestLoveTrack:
         db.save_show(_make_show(["Band A"], show_id="show-1", track_uris=["track:1"]))
 
         db.love_track("user-123", "track:1", "Song", "Artist")
-        db.love_track("user-123", "track:1", "Song", "Artist")  # Again
+        db.love_track("user-123", "track:1", "Song", "Artist")
 
-        # Still just one love
         loved = db.get_loved_tracks("user-123")
         assert len(loved) == 1
 
@@ -444,7 +527,6 @@ class TestUnloveTrack:
         assert db.is_track_loved("user-123", "track:1") is False
 
     def test_unlove_nonexistent_is_noop(self, db: Database) -> None:
-        # Should not raise
         db.unlove_track("user-123", "track:never-loved")
         assert db.is_track_loved("user-123", "track:never-loved") is False
 
@@ -474,13 +556,17 @@ class TestGetLovedTracks:
 class TestClearAll:
     """Test clearing all data."""
 
-    def test_clears_shows_and_imports(self, db: Database) -> None:
-        db.save_show(_make_show(["Band A"], show_id="id-1"))
+    def test_clears_everything(self, db: Database) -> None:
+        playlist = db.create_playlist("Test", "user-1")
+        show = _make_show(["Band A"], show_id="id-1")
+        db.save_show(show)
+        db.add_show_to_playlist(playlist.id, show.id, "user-1")
         db.record_import(_make_import(url="https://url1.com"))
         db.love_track("user-1", "track:1", "Song", "Artist")
 
         db.clear_all()
 
         assert len(db.get_all_shows()) == 0
+        assert len(db.get_all_playlists()) == 0
         assert db.get_import("https://url1.com") is None
         assert db.is_track_loved("user-1", "track:1") is False

@@ -5,7 +5,7 @@ import pytest
 
 from app import app, extract_data_from_urls, process_single_url
 from extensions import db as flask_db
-from models import ImportedUrl, ImportStatus, Show, ShowSubmission
+from models import Artist, ImportedUrl, ImportStatus, Show
 
 
 def _make_show(show_id: str = "test-id", artists: list[str] | None = None) -> Show:
@@ -13,17 +13,13 @@ def _make_show(show_id: str = "test-id", artists: list[str] | None = None) -> Sh
     if artists is None:
         artists = ["Test Artist"]
     return Show(
-        submission=ShowSubmission(
-            artists=artists,
-            venue="Test Venue",
-            date="2026-03-15",
-            ticket_url="https://example.com/event",
-        ),
         id=show_id,
+        venue="Test Venue",
+        date="2026-03-15",
+        ticket_url="https://example.com/event",
         created_at="2026-02-13T12:00:00Z",
-        artist_spotify_ids=["spotify:artist:123"],
+        artists=[Artist(name=a, spotify_id=f"spotify:artist:{i}") for i, a in enumerate(artists)],
         track_uris=["spotify:track:1", "spotify:track:2"],
-        playlist_id="playlist-123",
     )
 
 

@@ -8,7 +8,7 @@ import pytest
 from app import app
 from extensions import db as flask_db
 from db import Database
-from models import Show, ShowSubmission
+from models import Artist, Show
 
 
 @pytest.fixture
@@ -51,19 +51,14 @@ def sample_show(test_app, database):
     """A show with some tracks."""
     show = Show(
         id="show-1",
-        submission=ShowSubmission(
-            artists=["Blondie"],
-            venue="The Earl",
-            date="2026-03-15",
-        ),
+        venue="The Earl",
+        date="2026-03-15",
         created_at="2026-02-14T12:00:00Z",
-        artist_spotify_ids=["abc123"],
+        artists=[Artist(name="Blondie", spotify_id="abc123")],
         track_uris=[
             "spotify:track:track1",
             "spotify:track:track2",
         ],
-        playlist_id="playlist-1",
-        loved_tracks=[],
     )
     database.save_show(show)
     return show
@@ -74,29 +69,19 @@ def two_shows_same_track(test_app, database):
     """Two shows that share a track."""
     show1 = Show(
         id="show-1",
-        submission=ShowSubmission(
-            artists=["Blondie"],
-            venue="The Earl",
-            date="2026-03-15",
-        ),
+        venue="The Earl",
+        date="2026-03-15",
         created_at="2026-02-14T12:00:00Z",
-        artist_spotify_ids=["abc123"],
+        artists=[Artist(name="Blondie", spotify_id="abc123")],
         track_uris=["spotify:track:shared", "spotify:track:unique1"],
-        playlist_id="playlist-1",
-        loved_tracks=[],
     )
     show2 = Show(
         id="show-2",
-        submission=ShowSubmission(
-            artists=["Blondie"],
-            venue="Terminal West",
-            date="2026-04-20",
-        ),
+        venue="Terminal West",
+        date="2026-04-20",
         created_at="2026-02-14T12:00:00Z",
-        artist_spotify_ids=["abc456"],
+        artists=[Artist(name="Blondie", spotify_id="abc456")],
         track_uris=["spotify:track:shared", "spotify:track:unique2"],
-        playlist_id="playlist-1",
-        loved_tracks=[],
     )
     database.save_show(show1)
     database.save_show(show2)

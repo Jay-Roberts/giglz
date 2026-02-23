@@ -48,14 +48,50 @@ Install git hooks:
 uv run pre-commit install
 ```
 
-## Deployment (Railway)
+## Deploy to Railway
 
-*Coming soon*
+```sh
+railway login
+railway init
+railway up
+```
 
-Key points:
-- Set `GIGLZ_DATA_DIR=/data` with a Railway Volume for persistence
-- Add `ALLOWED_USER_IDS=friend1,friend2` for access control
-- Gunicorn runs via Procfile
+Add a **volume** for database persistence (Dashboard → Service → Volumes):
+- Mount path: `/data`
+
+Set variables:
+```sh
+railway variables set GIGLZ_DATA_DIR=/data
+railway variables set SPOTIFY_CLIENT_ID=xxx
+railway variables set SPOTIFY_CLIENT_SECRET=xxx
+railway variables set SPOTIFY_REDIRECT_URI=https://YOUR-APP.up.railway.app/callback
+railway variables set HOST_USER_ID=your-spotify-id
+railway variables set FLASK_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+```
+
+Update Spotify Dashboard → Your App → Redirect URIs with your Railway URL.
+
+<details>
+<summary>Optional variables</summary>
+
+```sh
+railway variables set OPENROUTER_API_KEY=xxx      # URL import feature
+railway variables set ALLOWED_USER_IDS=id1,id2   # Allow friends to log in
+```
+</details>
+
+<details>
+<summary>First deploy: run migrations manually</summary>
+
+```sh
+railway shell
+flask db upgrade
+exit
+```
+After the first deploy, migrations run automatically via Procfile.
+</details>
+
+> **Note:** Volumes require Railway Pro ($5/mo). Free tier resets the database on every deploy.
 
 ## Sharing with Friends (Tailscale)
 
