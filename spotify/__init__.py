@@ -4,7 +4,12 @@ Provides OAuth token management and API client for Spotify operations.
 """
 
 from spotify.client import PlaylistCache, SpotifyAPI
-from spotify.models import ArtistSearch, ArtistTopTrack, CurrentlyPlaying, UserPlaylist
+from spotify.models import (
+    ArtistSearch,
+    ArtistTopTrack,
+    CurrentlyPlaying,
+    SpotifyPlaylist,
+)
 from spotify.token import TokenManager
 
 __all__ = [
@@ -14,5 +19,5 @@ __all__ = [
     "ArtistSearch",
     "ArtistTopTrack",
     "CurrentlyPlaying",
-    "UserPlaylist",
+    "SpotifyPlaylist",
 ]

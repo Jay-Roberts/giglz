@@ -3,7 +3,8 @@
 import pytest
 
 from app import app
-from config import HOST_USER_ID
+
+TEST_USER_ID = "test-host-user"
 
 
 @pytest.fixture
@@ -20,6 +21,6 @@ def host_client():
     app.config["TESTING"] = True
     with app.test_client() as client:
         with client.session_transaction() as session:
-            session["user_id"] = HOST_USER_ID
+            session["user_id"] = TEST_USER_ID
             session["user_name"] = "Test Host"
         yield client

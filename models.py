@@ -35,7 +35,7 @@ class Show(BaseModel):
     """A scouted show with Spotify data, ready for persistence.
 
     Created by enriching a ShowSubmission with Spotify lookup results.
-    Shows can belong to multiple playlists via PlaylistShow.
+    Shows can belong to multiple ShowLists via ShowListShow.
     """
 
     id: str = ""
@@ -85,8 +85,8 @@ class Show(BaseModel):
         )
 
 
-class Playlist(BaseModel):
-    """A user-created collection of shows."""
+class ShowList(BaseModel):
+    """A user-created collection of shows (displayed as 'Lineup' to users)."""
 
     id: str
     name: str

@@ -2,7 +2,6 @@
 
 import logging
 import os
-import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -29,8 +28,8 @@ SHARE_ON_NETWORK = bool(os.environ.get("GIGLZ_SHARE"))
 # Port - default 5001 to avoid macOS AirPlay Receiver conflict on 5000
 PORT = int(os.environ.get("GIGLZ_PORT", "5001"))
 
-# Host user ID - only this Spotify user can import shows
-# Friends can log in to play/love but not add tracks
+# Host user ID - this user owns the Spotify playlist and is used for playlist operations
+# All logged-in users can import shows, but tracks are added using the host's account
 HOST_USER_ID = os.environ.get("HOST_USER_ID")
 
 # Allowed user IDs - only these Spotify users can log in
@@ -59,19 +58,5 @@ def setup_logging() -> None:
             logging.getLogger(name).setLevel(logging.DEBUG)
 
 
-def _get_git_branch() -> str | None:
-    """Get current git branch name, or None if not in a repo."""
-    try:
-        return subprocess.check_output(
-            ["git", "branch", "--show-current"], text=True
-        ).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-
-SCOUTING_PLAYLIST_NAME = os.environ.get("GIGLZ_PLAYLIST_NAME", "Scouting")
-if os.environ.get("GIGLZ_PLAYLIST_DEV"):
-    branch = _get_git_branch()
-    if branch:
-        branch = branch.replace("/", "_")
-        SCOUTING_PLAYLIST_NAME = f"{SCOUTING_PLAYLIST_NAME}-{branch}"
+# User-facing display name for ShowLists (internal name is "ShowList")
+SHOWLIST_DISPLAY_NAME = "Lineup"

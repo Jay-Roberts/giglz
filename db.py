@@ -5,116 +5,111 @@ from datetime import datetime, timezone
 
 from extensions import db
 from db_models import (
-    Playlist as PlaylistModel,
+    ShowList as ShowListModel,
     Show as ShowModel,
     ShowArtist,
     ShowTrack,
-    PlaylistShow,
+    ShowListShow,
     ImportedUrl as ImportedUrlModel,
     UserLovedTrack,
 )
 from models import (
     Artist,
     Show,
-    Playlist,
+    ShowList,
     ImportedUrl,
     ImportStatus,
     LovedTrack,
 )
 
-DEFAULT_PLAYLIST_NAME = "all the giglz"
+DEFAULT_SHOWLIST_NAME = "giglz"
 
 
 class Database:
     """Single entry point for all persistence operations."""
 
     # -------------------------------------------------------------------------
-    # Playlists
+    # ShowLists
     # -------------------------------------------------------------------------
 
-    def create_playlist(self, name: str, owner_user_id: str) -> Playlist:
-        """Create a new playlist."""
-        playlist_id = str(uuid.uuid4())
+    def create_showlist(self, name: str, owner_user_id: str) -> ShowList:
+        """Create a new showlist with a unique name.
+
+        If a showlist with the given name already exists, appends -2, -3, etc.
+        """
+        final_name = name
+        suffix = 2
+        while self.get_showlist_by_name(final_name):
+            final_name = f"{name}-{suffix}"
+            suffix += 1
+
+        showlist_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
 
-        row = PlaylistModel(
-            id=playlist_id,
-            name=name,
+        row = ShowListModel(
+            id=showlist_id,
+            name=final_name,
             owner_user_id=owner_user_id,
             created_at=now,
         )
         db.session.add(row)
         db.session.commit()
 
-        return Playlist(
-            id=playlist_id,
-            name=name,
+        return ShowList(
+            id=showlist_id,
+            name=final_name,
             owner_user_id=owner_user_id,
             created_at=now,
             spotify_playlist_id=None,
         )
 
-    def get_playlist(self, playlist_id: str) -> Playlist | None:
-        """Get playlist by ID."""
-        row = PlaylistModel.query.filter_by(id=playlist_id).first()
+    def get_showlist(self, showlist_id: str) -> ShowList | None:
+        """Get showlist by ID."""
+        row = ShowListModel.query.filter_by(id=showlist_id).first()
         if not row:
             return None
-        return self._row_to_playlist(row)
+        return self._row_to_showlist(row)
 
-    def get_playlist_by_name(self, name: str) -> Playlist | None:
-        """Get playlist by name (case-insensitive).
-
-        Returns the most recently created match if multiple exist.
-        Use count_playlists_by_name() to check for duplicates.
-        """
-        row = PlaylistModel.query.filter(
-            db.func.lower(PlaylistModel.name) == name.lower()
-        ).order_by(PlaylistModel.created_at.desc()).first()
+    def get_showlist_by_name(self, name: str) -> ShowList | None:
+        """Get showlist by name (case-insensitive)."""
+        row = ShowListModel.query.filter(
+            db.func.lower(ShowListModel.name) == name.lower()
+        ).first()
         if not row:
             return None
-        return self._row_to_playlist(row)
+        return self._row_to_showlist(row)
 
-    def count_playlists_by_name(self, name: str) -> int:
-        """Count playlists with a given name (case-insensitive)."""
-        return PlaylistModel.query.filter(
-            db.func.lower(PlaylistModel.name) == name.lower()
-        ).count()
+    def get_all_showlists(self) -> list[ShowList]:
+        """Get all showlists."""
+        rows = ShowListModel.query.order_by(ShowListModel.created_at).all()
+        return [self._row_to_showlist(r) for r in rows]
 
-    def get_all_playlists(self) -> list[Playlist]:
-        """Get all playlists."""
-        rows = PlaylistModel.query.order_by(PlaylistModel.created_at).all()
-        return [self._row_to_playlist(r) for r in rows]
+    def get_or_create_default_showlist(self, owner_user_id: str) -> ShowList:
+        """Get the default showlist, creating it if it doesn't exist."""
+        showlist = self.get_showlist_by_name(DEFAULT_SHOWLIST_NAME)
+        if showlist:
+            return showlist
+        return self.create_showlist(DEFAULT_SHOWLIST_NAME, owner_user_id)
 
-    def get_or_create_default_playlist(self, owner_user_id: str) -> Playlist:
-        """Get the default playlist, creating it if it doesn't exist.
-
-        Returns the most recent if multiple exist with the default name.
-        Caller should use count_playlists_by_name() to warn about duplicates.
-        """
-        playlist = self.get_playlist_by_name(DEFAULT_PLAYLIST_NAME)
-        if playlist:
-            return playlist
-        return self.create_playlist(DEFAULT_PLAYLIST_NAME, owner_user_id)
-
-    def update_playlist_spotify_id(
-        self, playlist_id: str, spotify_playlist_id: str | None
+    def update_showlist_spotify_id(
+        self, showlist_id: str, spotify_playlist_id: str | None
     ) -> None:
-        """Link a Giglz playlist to a Spotify playlist.
+        """Link a Giglz showlist to a Spotify playlist.
 
         Called when:
-        - First sync: Giglz playlist exists, Spotify playlist just created
+        - First sync: Giglz showlist exists, Spotify playlist just created
         - Re-sync: Spotify playlist was deleted, new one created
 
         Set to None to clear the link (e.g., if Spotify playlist is gone).
         """
-        row = PlaylistModel.query.filter_by(id=playlist_id).first()
+        row = ShowListModel.query.filter_by(id=showlist_id).first()
         if row:
             row.spotify_playlist_id = spotify_playlist_id
             db.session.commit()
 
-    def _row_to_playlist(self, row: PlaylistModel) -> Playlist:
+    def _row_to_showlist(self, row: ShowListModel) -> ShowList:
         """Convert DB row to Pydantic model."""
-        return Playlist(
+        return ShowList(
             id=row.id,
             name=row.name,
             owner_user_id=row.owner_user_id,
@@ -174,9 +169,11 @@ class Database:
 
     def _row_to_show(self, row: ShowModel) -> Show:
         """Reconstruct Show from normalized DB rows."""
-        artist_rows = ShowArtist.query.filter_by(show_id=row.id).order_by(
-            ShowArtist.position
-        ).all()
+        artist_rows = (
+            ShowArtist.query.filter_by(show_id=row.id)
+            .order_by(ShowArtist.position)
+            .all()
+        )
         artists = [
             Artist(name=a.artist_name, spotify_id=a.spotify_id) for a in artist_rows
         ]
@@ -195,22 +192,22 @@ class Database:
         )
 
     # -------------------------------------------------------------------------
-    # Playlist-Show Linking
+    # ShowList-Show Linking
     # -------------------------------------------------------------------------
 
-    def add_show_to_playlist(
-        self, playlist_id: str, show_id: str, user_id: str
+    def add_show_to_showlist(
+        self, showlist_id: str, show_id: str, user_id: str
     ) -> None:
-        """Link a show to a playlist."""
-        existing = PlaylistShow.query.filter_by(
-            playlist_id=playlist_id, show_id=show_id
+        """Link a show to a showlist."""
+        existing = ShowListShow.query.filter_by(
+            showlist_id=showlist_id, show_id=show_id
         ).first()
         if existing:
             return
 
         now = datetime.now(timezone.utc).isoformat()
-        row = PlaylistShow(
-            playlist_id=playlist_id,
+        row = ShowListShow(
+            showlist_id=showlist_id,
             show_id=show_id,
             added_at=now,
             added_by_user_id=user_id,
@@ -218,16 +215,14 @@ class Database:
         db.session.add(row)
         db.session.commit()
 
-    def remove_show_from_playlist(self, playlist_id: str, show_id: str) -> None:
-        """Unlink a show from a playlist."""
-        PlaylistShow.query.filter_by(
-            playlist_id=playlist_id, show_id=show_id
-        ).delete()
+    def remove_show_from_showlist(self, showlist_id: str, show_id: str) -> None:
+        """Unlink a show from a showlist."""
+        ShowListShow.query.filter_by(showlist_id=showlist_id, show_id=show_id).delete()
         db.session.commit()
 
-    def get_shows_for_playlist(self, playlist_id: str) -> list[Show]:
-        """Get all shows in a playlist."""
-        links = PlaylistShow.query.filter_by(playlist_id=playlist_id).all()
+    def get_shows_for_showlist(self, showlist_id: str) -> list[Show]:
+        """Get all shows in a showlist."""
+        links = ShowListShow.query.filter_by(showlist_id=showlist_id).all()
         show_ids = [link.show_id for link in links]
 
         shows = []
@@ -237,17 +232,17 @@ class Database:
                 shows.append(show)
         return shows
 
-    def get_playlists_for_show(self, show_id: str) -> list[Playlist]:
-        """Get all playlists containing a show."""
-        links = PlaylistShow.query.filter_by(show_id=show_id).all()
-        playlist_ids = [link.playlist_id for link in links]
+    def get_showlists_for_show(self, show_id: str) -> list[ShowList]:
+        """Get all showlists containing a show."""
+        links = ShowListShow.query.filter_by(show_id=show_id).all()
+        showlist_ids = [link.showlist_id for link in links]
 
-        playlists = []
-        for pid in playlist_ids:
-            playlist = self.get_playlist(pid)
-            if playlist:
-                playlists.append(playlist)
-        return playlists
+        showlists = []
+        for sid in showlist_ids:
+            showlist = self.get_showlist(sid)
+            if showlist:
+                showlists.append(showlist)
+        return showlists
 
     # -------------------------------------------------------------------------
     # Track Queries
@@ -367,8 +362,7 @@ class Database:
             return {}
 
         loved_uris = {
-            r.track_uri
-            for r in UserLovedTrack.query.filter_by(user_id=user_id).all()
+            r.track_uri for r in UserLovedTrack.query.filter_by(user_id=user_id).all()
         }
         if not loved_uris:
             return {}
@@ -388,11 +382,11 @@ class Database:
 
     def clear_all(self) -> None:
         """Wipe all data."""
-        PlaylistShow.query.delete()
+        ShowListShow.query.delete()
         ShowArtist.query.delete()
         ShowTrack.query.delete()
         ShowModel.query.delete()
-        PlaylistModel.query.delete()
+        ShowListModel.query.delete()
         ImportedUrlModel.query.delete()
         UserLovedTrack.query.delete()
         db.session.commit()

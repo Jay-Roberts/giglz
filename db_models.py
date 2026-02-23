@@ -6,21 +6,21 @@ from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column
 from extensions import db
 
 
-class Playlist(MappedAsDataclass, db.Model):
-    """A user-created collection of shows.
+class ShowList(MappedAsDataclass, db.Model):
+    """A user-created collection of shows (displayed as 'Lineup' to users).
 
     Syncs to a Spotify playlist on the host's account.
-    All playlists are visible to all users.
+    All showlists are visible to all users.
 
     Attributes:
         id: UUID primary key.
-        name: Display name (e.g. "all the giglz").
+        name: Display name (e.g. "giglz").
         owner_user_id: Spotify user ID of creator.
         created_at: ISO timestamp.
         spotify_playlist_id: Spotify playlist ID, nullable until first sync.
     """
 
-    __tablename__ = "playlists"
+    __tablename__ = "showlists"
 
     id: Mapped[str] = mapped_column(primary_key=True)
     name: Mapped[str]
@@ -33,7 +33,7 @@ class Show(MappedAsDataclass, db.Model):
     """A concert show at a venue on a date.
 
     Artists are stored separately in ShowArtist (normalized).
-    Shows can belong to multiple playlists via PlaylistShow.
+    Shows can belong to multiple showlists via ShowListShow.
 
     Attributes:
         id: UUID primary key.
@@ -75,22 +75,22 @@ class ShowArtist(MappedAsDataclass, db.Model):
     spotify_id: Mapped[str | None] = mapped_column(default=None)
 
 
-class PlaylistShow(MappedAsDataclass, db.Model):
-    """Links shows to playlists (many-to-many).
+class ShowListShow(MappedAsDataclass, db.Model):
+    """Links shows to showlists (many-to-many).
 
     Tracks who added the show and when, for audit purposes.
 
     Attributes:
-        playlist_id: Foreign key to playlists.id.
+        showlist_id: Foreign key to showlists.id.
         show_id: Foreign key to shows.id.
         added_at: ISO timestamp when linked.
         added_by_user_id: Spotify user ID who added this show.
     """
 
-    __tablename__ = "playlist_shows"
+    __tablename__ = "showlist_shows"
 
-    playlist_id: Mapped[str] = mapped_column(
-        ForeignKey("playlists.id"), primary_key=True
+    showlist_id: Mapped[str] = mapped_column(
+        ForeignKey("showlists.id"), primary_key=True
     )
     show_id: Mapped[str] = mapped_column(ForeignKey("shows.id"), primary_key=True)
     added_at: Mapped[str]

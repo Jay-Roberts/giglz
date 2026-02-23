@@ -10,7 +10,12 @@ import time
 import spotipy
 from rapidfuzz import fuzz
 
-from spotify.models import ArtistSearch, ArtistTopTrack, CurrentlyPlaying, UserPlaylist
+from spotify.models import (
+    ArtistSearch,
+    ArtistTopTrack,
+    CurrentlyPlaying,
+    SpotifyPlaylist,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +35,10 @@ class PlaylistCache:
     """
 
     def __init__(self, ttl_seconds: int = 300) -> None:
-        self._cache: dict[str, tuple[list[UserPlaylist], float]] = {}
+        self._cache: dict[str, tuple[list[SpotifyPlaylist], float]] = {}
         self._ttl = ttl_seconds
 
-    def get(self, user_id: str) -> list[UserPlaylist] | None:
+    def get(self, user_id: str) -> list[SpotifyPlaylist] | None:
         """Get cached playlists for user, or None if expired/missing."""
         if user_id not in self._cache:
             return None
@@ -43,7 +48,7 @@ class PlaylistCache:
             return None
         return playlists
 
-    def set(self, user_id: str, playlists: list[UserPlaylist]) -> None:
+    def set(self, user_id: str, playlists: list[SpotifyPlaylist]) -> None:
         """Cache playlists for user."""
         self._cache[user_id] = (playlists, time.time())
 
@@ -195,14 +200,14 @@ class SpotifyAPI:
             for track_result in top_tracks
         ]
 
-    def get_user_playlists(self, use_cache: bool = True) -> list[UserPlaylist]:
+    def get_user_playlists(self, use_cache: bool = True) -> list[SpotifyPlaylist]:
         """Fetch the user's playlists from Spotify.
 
         Args:
             use_cache: Whether to use cached playlists if available.
 
         Returns:
-            List of UserPlaylist objects.
+            List of SpotifyPlaylist objects.
         """
         if use_cache:
             cached = _playlist_cache.get(self._user_id)
@@ -210,7 +215,7 @@ class SpotifyAPI:
                 logger.debug("Using cached playlists for user %s", self._user_id)
                 return cached
 
-        playlists: list[UserPlaylist] = []
+        playlists: list[SpotifyPlaylist] = []
         offset = 0
 
         while offset < USER_PLAYLIST_MAX_PAGES:
@@ -224,7 +229,7 @@ class SpotifyAPI:
                 break
 
             items = results.get("items") or []
-            playlists.extend(UserPlaylist.from_spotify_playlist(p) for p in items)
+            playlists.extend(SpotifyPlaylist.from_spotify_response(p) for p in items)
 
             if len(items) < USER_PLAYLIST_FETCH_LIMIT:
                 break
@@ -240,7 +245,7 @@ class SpotifyAPI:
 
     def get_user_playlist(
         self, name: str | None = None, playlist_id: str | None = None
-    ) -> UserPlaylist | None:
+    ) -> SpotifyPlaylist | None:
         """Look up a playlist by name or ID.
 
         If both ``name`` and ``playlist_id`` are given, ``playlist_id``
@@ -260,7 +265,7 @@ class SpotifyAPI:
             return None
         return matches[0]
 
-    def get_or_create_playlist(self, name: str) -> UserPlaylist | None:
+    def get_or_create_playlist(self, name: str) -> SpotifyPlaylist | None:
         """Return an existing playlist by name, or create a new private one."""
         if user_playlist := self.get_user_playlist(name):
             logger.info("Found existing playlist %r (id=%s)", name, user_playlist.id)
@@ -285,7 +290,7 @@ class SpotifyAPI:
             create_response.get("id"),
             create_response.get("external_urls", {}).get("spotify"),
         )
-        created_playlist = UserPlaylist.from_spotify_playlist(create_response)
+        created_playlist = SpotifyPlaylist.from_spotify_response(create_response)
 
         # Invalidate cache so new playlist appears on next fetch
         _playlist_cache.invalidate(self._user_id)

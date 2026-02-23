@@ -7,7 +7,7 @@ import pytest
 
 from app import app
 from extensions import db as flask_db
-from db import Database, DEFAULT_PLAYLIST_NAME
+from db import Database, DEFAULT_SHOWLIST_NAME
 from models import (
     Artist,
     Show,
@@ -100,107 +100,94 @@ def db(test_app) -> Database:
     return Database()
 
 
-# --- Playlist Tests ---
+# --- ShowList Tests ---
 
 
-class TestPlaylistCRUD:
-    """Create, read, update playlists."""
+class TestShowListCRUD:
+    """Create, read, update showlists."""
 
-    def test_create_playlist(self, db: Database) -> None:
-        playlist = db.create_playlist("My Playlist", "user-123")
+    def test_create_showlist(self, db: Database) -> None:
+        showlist = db.create_showlist("My Playlist", "user-123")
 
-        assert playlist.name == "My Playlist"
-        assert playlist.owner_user_id == "user-123"
-        assert playlist.id is not None
-        assert playlist.spotify_playlist_id is None
+        assert showlist.name == "My Playlist"
+        assert showlist.owner_user_id == "user-123"
+        assert showlist.id is not None
+        assert showlist.spotify_playlist_id is None
 
-    def test_get_playlist_by_id(self, db: Database) -> None:
-        created = db.create_playlist("Test", "user-1")
-        retrieved = db.get_playlist(created.id)
+    def test_get_showlist_by_id(self, db: Database) -> None:
+        created = db.create_showlist("Test", "user-1")
+        retrieved = db.get_showlist(created.id)
 
         assert retrieved is not None
         assert retrieved.id == created.id
         assert retrieved.name == "Test"
 
-    def test_get_playlist_not_found(self, db: Database) -> None:
-        assert db.get_playlist("nonexistent") is None
+    def test_get_showlist_not_found(self, db: Database) -> None:
+        assert db.get_showlist("nonexistent") is None
 
-    def test_get_playlist_by_name(self, db: Database) -> None:
-        db.create_playlist("My Shows", "user-1")
-        retrieved = db.get_playlist_by_name("My Shows")
-
-        assert retrieved is not None
-        assert retrieved.name == "My Shows"
-
-    def test_get_playlist_by_name_case_insensitive(self, db: Database) -> None:
-        db.create_playlist("My Shows", "user-1")
-        retrieved = db.get_playlist_by_name("my shows")
+    def test_get_showlist_by_name(self, db: Database) -> None:
+        db.create_showlist("My Shows", "user-1")
+        retrieved = db.get_showlist_by_name("My Shows")
 
         assert retrieved is not None
         assert retrieved.name == "My Shows"
 
-    def test_get_all_playlists(self, db: Database) -> None:
-        db.create_playlist("Playlist A", "user-1")
-        db.create_playlist("Playlist B", "user-2")
+    def test_get_showlist_by_name_case_insensitive(self, db: Database) -> None:
+        db.create_showlist("My Shows", "user-1")
+        retrieved = db.get_showlist_by_name("my shows")
 
-        playlists = db.get_all_playlists()
+        assert retrieved is not None
+        assert retrieved.name == "My Shows"
 
-        assert len(playlists) == 2
-        names = {p.name for p in playlists}
+    def test_get_all_showlists(self, db: Database) -> None:
+        db.create_showlist("Playlist A", "user-1")
+        db.create_showlist("Playlist B", "user-2")
+
+        showlists = db.get_all_showlists()
+
+        assert len(showlists) == 2
+        names = {p.name for p in showlists}
         assert names == {"Playlist A", "Playlist B"}
 
-    def test_get_or_create_default_playlist_creates(self, db: Database) -> None:
-        playlist = db.get_or_create_default_playlist("user-1")
+    def test_get_or_create_default_showlist_creates(self, db: Database) -> None:
+        showlist = db.get_or_create_default_showlist("user-1")
 
-        assert playlist.name == DEFAULT_PLAYLIST_NAME
-        assert playlist.owner_user_id == "user-1"
+        assert showlist.name == DEFAULT_SHOWLIST_NAME
+        assert showlist.owner_user_id == "user-1"
 
-    def test_get_or_create_default_playlist_returns_existing(
+    def test_get_or_create_default_showlist_returns_existing(
         self, db: Database
     ) -> None:
-        first = db.get_or_create_default_playlist("user-1")
-        second = db.get_or_create_default_playlist("user-2")
+        first = db.get_or_create_default_showlist("user-1")
+        second = db.get_or_create_default_showlist("user-2")
 
         assert first.id == second.id
 
     def test_update_spotify_playlist_id(self, db: Database) -> None:
-        playlist = db.create_playlist("Test", "user-1")
-        db.update_playlist_spotify_id(playlist.id, "spotify:playlist:abc")
+        showlist = db.create_showlist("Test", "user-1")
+        db.update_showlist_spotify_id(showlist.id, "spotify:playlist:abc")
 
-        retrieved = db.get_playlist(playlist.id)
+        retrieved = db.get_showlist(showlist.id)
         assert retrieved is not None
         assert retrieved.spotify_playlist_id == "spotify:playlist:abc"
 
-    def test_get_playlist_by_name_returns_most_recent(self, db: Database) -> None:
-        """When multiple playlists have the same name, return most recent."""
-        import time
+    def test_create_showlist_unique_names(self, db: Database) -> None:
+        """Creating showlists with same name auto-suffixes to ensure uniqueness."""
+        first = db.create_showlist("Scouting", "user-1")
+        second = db.create_showlist("Scouting", "user-1")
+        third = db.create_showlist("Scouting", "user-1")
 
-        db.create_playlist("Scouting", "user-1")
-        time.sleep(0.01)  # Ensure different timestamps
-        second = db.create_playlist("Scouting", "user-1")
-
-        retrieved = db.get_playlist_by_name("Scouting")
-
-        assert retrieved is not None
-        assert retrieved.id == second.id
-
-    def test_count_playlists_by_name(self, db: Database) -> None:
-        db.create_playlist("Scouting", "user-1")
-        db.create_playlist("Scouting", "user-2")
-        db.create_playlist("Other", "user-1")
-
-        assert db.count_playlists_by_name("Scouting") == 2
-        assert db.count_playlists_by_name("scouting") == 2  # case insensitive
-        assert db.count_playlists_by_name("Other") == 1
-        assert db.count_playlists_by_name("Nonexistent") == 0
+        assert first.name == "Scouting"
+        assert second.name == "Scouting-2"
+        assert third.name == "Scouting-3"
 
     def test_clear_spotify_playlist_id(self, db: Database) -> None:
         """Can clear spotify_playlist_id when Spotify playlist is deleted."""
-        playlist = db.create_playlist("Test", "user-1")
-        db.update_playlist_spotify_id(playlist.id, "spotify:playlist:abc")
-        db.update_playlist_spotify_id(playlist.id, None)
+        showlist = db.create_showlist("Test", "user-1")
+        db.update_showlist_spotify_id(showlist.id, "spotify:playlist:abc")
+        db.update_showlist_spotify_id(showlist.id, None)
 
-        retrieved = db.get_playlist(playlist.id)
+        retrieved = db.get_showlist(showlist.id)
         assert retrieved is not None
         assert retrieved.spotify_playlist_id is None
 
@@ -301,60 +288,60 @@ class TestShowUpsert:
         assert all_shows[0].artists[0].name == "Band B"
 
 
-# --- Playlist-Show Linking Tests ---
+# --- ShowList-Show Linking Tests ---
 
 
-class TestPlaylistShowLinking:
-    """Test many-to-many linking."""
+class TestShowListShowLinking:
+    """Test many-to-many showlist-show linking."""
 
-    def test_add_show_to_playlist(self, db: Database) -> None:
-        playlist = db.create_playlist("My Shows", "user-1")
+    def test_add_show_to_showlist(self, db: Database) -> None:
+        showlist = db.create_showlist("My Shows", "user-1")
         show = _make_show(["Band A"], show_id="show-1")
         db.save_show(show)
 
-        db.add_show_to_playlist(playlist.id, show.id, "user-1")
+        db.add_show_to_showlist(showlist.id, show.id, "user-1")
 
-        shows = db.get_shows_for_playlist(playlist.id)
+        shows = db.get_shows_for_showlist(showlist.id)
         assert len(shows) == 1
         assert shows[0].id == "show-1"
 
-    def test_add_show_to_playlist_idempotent(self, db: Database) -> None:
-        playlist = db.create_playlist("My Shows", "user-1")
+    def test_add_show_to_showlist_idempotent(self, db: Database) -> None:
+        showlist = db.create_showlist("My Shows", "user-1")
         show = _make_show(["Band A"], show_id="show-1")
         db.save_show(show)
 
-        db.add_show_to_playlist(playlist.id, show.id, "user-1")
-        db.add_show_to_playlist(playlist.id, show.id, "user-1")
+        db.add_show_to_showlist(showlist.id, show.id, "user-1")
+        db.add_show_to_showlist(showlist.id, show.id, "user-1")
 
-        shows = db.get_shows_for_playlist(playlist.id)
+        shows = db.get_shows_for_showlist(showlist.id)
         assert len(shows) == 1
 
-    def test_show_in_multiple_playlists(self, db: Database) -> None:
-        playlist1 = db.create_playlist("Playlist A", "user-1")
-        playlist2 = db.create_playlist("Playlist B", "user-1")
+    def test_show_in_multiple_showlists(self, db: Database) -> None:
+        showlist1 = db.create_showlist("Playlist A", "user-1")
+        showlist2 = db.create_showlist("Playlist B", "user-1")
         show = _make_show(["Band A"], show_id="show-1")
         db.save_show(show)
 
-        db.add_show_to_playlist(playlist1.id, show.id, "user-1")
-        db.add_show_to_playlist(playlist2.id, show.id, "user-1")
+        db.add_show_to_showlist(showlist1.id, show.id, "user-1")
+        db.add_show_to_showlist(showlist2.id, show.id, "user-1")
 
-        playlists = db.get_playlists_for_show(show.id)
-        assert len(playlists) == 2
+        showlists = db.get_showlists_for_show(show.id)
+        assert len(showlists) == 2
 
-    def test_remove_show_from_playlist(self, db: Database) -> None:
-        playlist = db.create_playlist("My Shows", "user-1")
+    def test_remove_show_from_showlist(self, db: Database) -> None:
+        showlist = db.create_showlist("My Shows", "user-1")
         show = _make_show(["Band A"], show_id="show-1")
         db.save_show(show)
-        db.add_show_to_playlist(playlist.id, show.id, "user-1")
+        db.add_show_to_showlist(showlist.id, show.id, "user-1")
 
-        db.remove_show_from_playlist(playlist.id, show.id)
+        db.remove_show_from_showlist(showlist.id, show.id)
 
-        shows = db.get_shows_for_playlist(playlist.id)
+        shows = db.get_shows_for_showlist(showlist.id)
         assert len(shows) == 0
 
     def test_get_shows_for_empty_playlist(self, db: Database) -> None:
-        playlist = db.create_playlist("Empty", "user-1")
-        shows = db.get_shows_for_playlist(playlist.id)
+        showlist = db.create_showlist("Empty", "user-1")
+        shows = db.get_shows_for_showlist(showlist.id)
         assert shows == []
 
 
@@ -557,16 +544,16 @@ class TestClearAll:
     """Test clearing all data."""
 
     def test_clears_everything(self, db: Database) -> None:
-        playlist = db.create_playlist("Test", "user-1")
+        showlist = db.create_showlist("Test", "user-1")
         show = _make_show(["Band A"], show_id="id-1")
         db.save_show(show)
-        db.add_show_to_playlist(playlist.id, show.id, "user-1")
+        db.add_show_to_showlist(showlist.id, show.id, "user-1")
         db.record_import(_make_import(url="https://url1.com"))
         db.love_track("user-1", "track:1", "Song", "Artist")
 
         db.clear_all()
 
         assert len(db.get_all_shows()) == 0
-        assert len(db.get_all_playlists()) == 0
+        assert len(db.get_all_showlists()) == 0
         assert db.get_import("https://url1.com") is None
         assert db.is_track_loved("user-1", "track:1") is False

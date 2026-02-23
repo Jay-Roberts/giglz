@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from spotify import ArtistSearch, ArtistTopTrack, SpotifyAPI, UserPlaylist
+from spotify import ArtistSearch, ArtistTopTrack, SpotifyAPI, SpotifyPlaylist
 from spotify.client import _playlist_cache
 
 # Backwards compatibility alias for tests
@@ -367,12 +367,12 @@ class TestAddTracksToPlaylist:
         mock_sp.playlist_add_items.assert_called_once_with("pl-1", uris)
 
 
-class TestUserPlaylistFromSpotify:
-    """UserPlaylist.from_spotify_playlist classmethod."""
+class TestSpotifyPlaylistFromResponse:
+    """SpotifyPlaylist.from_spotify_response classmethod."""
 
     def test_parses_playlist_response(self) -> None:
         raw = _make_playlist_response("Scouting", "pl-1", "user-1")
-        result = UserPlaylist.from_spotify_playlist(raw)
+        result = SpotifyPlaylist.from_spotify_response(raw)
 
         assert result.name == "Scouting"
         assert result.id == "pl-1"
@@ -382,7 +382,7 @@ class TestUserPlaylistFromSpotify:
     def test_parses_create_response(self) -> None:
         # user_playlist_create returns the same shape
         raw = _make_playlist_response("New", "pl-new", "user-1")
-        result = UserPlaylist.from_spotify_playlist(raw)
+        result = SpotifyPlaylist.from_spotify_response(raw)
 
         assert result.name == "New"
         assert result.id == "pl-new"

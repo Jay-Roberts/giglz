@@ -5,8 +5,9 @@ import pytest
 from unittest.mock import patch, Mock
 
 from app import app, parse_shows_csv
-from config import HOST_USER_ID
 from models import ShowSubmission
+
+TEST_USER_ID = "test-host-user"
 
 
 class TestParseShowsCsv:
@@ -139,7 +140,7 @@ class TestImportShowsCsvRoute:
         app.config["TESTING"] = True
         with app.test_client() as client:
             with client.session_transaction() as session:
-                session["user_id"] = HOST_USER_ID
+                session["user_id"] = TEST_USER_ID
                 session["user_name"] = "Test Host"
             yield client
 
@@ -181,40 +182,13 @@ Radiohead,The Tabernacle,2026-05-01
 """
         response = host_client.post(
             "/import-shows/csv",
-            data={
-                "csv_file": (io.BytesIO(csv_content), "shows.csv"),
-                "playlist_name": "Scouting",
-            },
-            content_type="multipart/form-data",
-        )
-
-        assert response.status_code == 302
-        assert mock_scout.call_count == 1
-        assert mock_db.save_show.call_count == 1
-
-    @patch("app._scout_submission")
-    @patch("app.get_db")
-    def test_uses_default_playlist_name(self, mock_get_db, mock_scout, host_client):
-        """Use default playlist name when not specified."""
-        mock_db = Mock()
-        mock_get_db.return_value = mock_db
-
-        mock_show = Mock()
-        mock_show.track_uris = []
-        mock_scout.return_value = (mock_show, [])
-
-        csv_content = b"""artists,venue,date
-Radiohead,The Tabernacle,2026-05-01
-"""
-        response = host_client.post(
-            "/import-shows/csv",
             data={"csv_file": (io.BytesIO(csv_content), "shows.csv")},
             content_type="multipart/form-data",
         )
 
         assert response.status_code == 302
-        # Scout was called (would use default playlist internally)
         assert mock_scout.call_count == 1
+        # _scout_submission now saves the show internally
 
     def test_invalid_csv_flashes_error(self, host_client):
         """Flash error for CSV with no valid rows."""

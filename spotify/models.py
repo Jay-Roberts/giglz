@@ -32,8 +32,8 @@ class ArtistTopTrack(pydantic.BaseModel):
     id: str
 
 
-class UserPlaylist(pydantic.BaseModel):
-    """A playlist owned by the authenticated user."""
+class SpotifyPlaylist(pydantic.BaseModel):
+    """A playlist on Spotify (owned by the authenticated user)."""
 
     user_id: str
     name: str
@@ -41,7 +41,7 @@ class UserPlaylist(pydantic.BaseModel):
     url: str
 
     @classmethod
-    def from_spotify_playlist(cls, playlist: dict) -> "UserPlaylist":
+    def from_spotify_response(cls, playlist: dict) -> "SpotifyPlaylist":
         """Build from a Spotify playlist dict.
 
         Works with responses from both ``current_user_playlists`` and

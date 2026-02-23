@@ -18,7 +18,10 @@ def _make_show(show_id: str = "test-id", artists: list[str] | None = None) -> Sh
         date="2026-03-15",
         ticket_url="https://example.com/event",
         created_at="2026-02-13T12:00:00Z",
-        artists=[Artist(name=a, spotify_id=f"spotify:artist:{i}") for i, a in enumerate(artists)],
+        artists=[
+            Artist(name=a, spotify_id=f"spotify:artist:{i}")
+            for i, a in enumerate(artists)
+        ],
         track_uris=["spotify:track:1", "spotify:track:2"],
     )
 
@@ -52,7 +55,7 @@ class TestExtractDataFromUrls:
         mock_import_url.return_value = _make_show()
 
         shows, imported_urls, failures, skipped = extract_data_from_urls(
-            ["https://example.com/event"]
+            ["https://example.com/event"], "test-user"
         )
 
         assert len(shows) == 1
@@ -75,7 +78,7 @@ class TestExtractDataFromUrls:
         mock_get_db.return_value = mock_db
 
         shows, imported_urls, failures, skipped = extract_data_from_urls(
-            ["https://example.com/event"]
+            ["https://example.com/event"], "test-user"
         )
 
         assert len(shows) == 0
@@ -100,7 +103,7 @@ class TestExtractDataFromUrls:
         mock_import_url.return_value = _make_show()
 
         shows, imported_urls, failures, skipped = extract_data_from_urls(
-            ["https://example.com/event"]
+            ["https://example.com/event"], "test-user"
         )
 
         assert len(shows) == 1
@@ -116,7 +119,7 @@ class TestExtractDataFromUrls:
         mock_import_url.side_effect = ValueError("Could not extract artists")
 
         shows, imported_urls, failures, skipped = extract_data_from_urls(
-            ["https://example.com/event"]
+            ["https://example.com/event"], "test-user"
         )
 
         assert len(shows) == 0
@@ -153,7 +156,8 @@ class TestExtractDataFromUrls:
                 "https://example.com/event1",
                 "https://example.com/event2",
                 "https://example.com/event3",
-            ]
+            ],
+            "test-user",
         )
 
         assert len(shows) == 1
@@ -171,7 +175,9 @@ class TestExtractDataFromUrls:
         mock_get_db.return_value = mock_db
         mock_import_url.return_value = _make_show()
 
-        extract_data_from_urls(["https://WWW.Example.COM/event?utm_source=twitter"])
+        extract_data_from_urls(
+            ["https://WWW.Example.COM/event?utm_source=twitter"], "test-user"
+        )
 
         # Should normalize before checking DB
         mock_db.get_import.assert_called_once_with("https://example.com/event")
@@ -189,7 +195,7 @@ class TestExtractDataFromUrls:
         mock_import_url.return_value = show
 
         shows, imported_urls, failures, skipped = extract_data_from_urls(
-            ["https://example.com/event"]
+            ["https://example.com/event"], "test-user"
         )
 
         imported = imported_urls[0]
@@ -210,7 +216,9 @@ class TestProcessSingleUrl:
         mock_get_db.return_value = mock_db
         mock_import_url.return_value = _make_show(show_id="new-show")
 
-        show, imported_url = process_single_url("https://example.com/event")
+        show, imported_url = process_single_url(
+            "https://example.com/event", "test-user"
+        )
 
         assert show is not None
         assert show.id == "new-show"
@@ -234,7 +242,9 @@ class TestProcessSingleUrl:
         )
         mock_get_db.return_value = mock_db
 
-        show, imported_url = process_single_url("https://example.com/event")
+        show, imported_url = process_single_url(
+            "https://example.com/event", "test-user"
+        )
 
         assert show is None
         assert imported_url.status == ImportStatus.SKIPPED
@@ -251,7 +261,9 @@ class TestProcessSingleUrl:
         mock_get_db.return_value = mock_db
         mock_import_url.side_effect = ValueError("Bot protection detected")
 
-        show, imported_url = process_single_url("https://example.com/event")
+        show, imported_url = process_single_url(
+            "https://example.com/event", "test-user"
+        )
 
         assert show is None
         assert imported_url.status == ImportStatus.FAILED
@@ -273,7 +285,9 @@ class TestProcessSingleUrl:
         mock_get_db.return_value = mock_db
         mock_import_url.return_value = _make_show(show_id="retry-success")
 
-        show, imported_url = process_single_url("https://example.com/event")
+        show, imported_url = process_single_url(
+            "https://example.com/event", "test-user"
+        )
 
         assert show is not None
         assert show.id == "retry-success"
@@ -290,6 +304,6 @@ class TestProcessSingleUrl:
         mock_get_db.return_value = mock_db
         mock_import_url.return_value = _make_show()
 
-        process_single_url("https://WWW.Example.COM/event?utm_source=foo")
+        process_single_url("https://WWW.Example.COM/event?utm_source=foo", "test-user")
 
         mock_db.get_import.assert_called_once_with("https://example.com/event")

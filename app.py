@@ -18,8 +18,8 @@ from config import (
     FLASK_SECRET_KEY,
     HOST_USER_ID,
     PORT,
-    SCOUTING_PLAYLIST_NAME,
     SHARE_ON_NETWORK,
+    SHOWLIST_DISPLAY_NAME,
     SQLALCHEMY_DATABASE_URI,
     SQLALCHEMY_TRACK_MODIFICATIONS,
     setup_logging,
@@ -77,6 +77,7 @@ def inject_globals():
         "app_name": APP_NAME,
         "app_display_name": APP_DISPLAY_NAME,
         "share_on_network": SHARE_ON_NETWORK,
+        "showlist_display_name": SHOWLIST_DISPLAY_NAME,
         "current_user_id": flask.session.get("user_id"),
         "current_user_name": flask.session.get("user_name"),
         "is_host": flask.session.get("user_id") == HOST_USER_ID,
@@ -103,7 +104,7 @@ def require_host(f):
 
 
 def _auto_follow_host_playlist(access_token: str) -> None:
-    """Make user follow the host's scouting playlist.
+    """Make user follow the host's giglz playlist.
 
     Called on first login for non-host users. Fails gracefully
     if host hasn't set up the playlist yet.
@@ -120,14 +121,14 @@ def _auto_follow_host_playlist(access_token: str) -> None:
             return
 
         host_api = SpotifyAPI(host_token)
-        playlist = host_api.get_user_playlist(name=SCOUTING_PLAYLIST_NAME)
-        if not playlist:
-            logger.warning("Host playlist '%s' not found", SCOUTING_PLAYLIST_NAME)
+        spotify_playlist = host_api.get_user_playlist(name="giglz")
+        if not spotify_playlist:
+            logger.warning("Host playlist 'giglz' not found")
             return
 
         user_api = SpotifyAPI(access_token)
-        user_api.follow_playlist(playlist.id)
-        logger.info("User auto-followed playlist %s", playlist.id)
+        user_api.follow_playlist(spotify_playlist.id)
+        logger.info("User auto-followed playlist %s", spotify_playlist.id)
     except Exception as e:
         logger.warning("Auto-follow failed: %s", e)
 
@@ -243,18 +244,18 @@ def get_host_spotify_api() -> SpotifyAPI:
 
 def _scout_submission(
     submission: ShowSubmission,
-    playlist_name: str | None = None,
+    user_id: str,
 ) -> tuple[Show, list[str]]:
     """Run Spotify pipeline on a ShowSubmission.
 
-    Searches each artist, grabs top tracks, adds them to the specified
-    playlist (or default Scouting playlist), and builds a Show object.
+    Searches each artist, grabs top tracks, adds them to the default
+    showlist's Spotify playlist, and builds a Show object.
 
     Uses host's Spotify account for playlist operations.
 
     Args:
         submission: The show submission to process.
-        playlist_name: Optional playlist name. Defaults to SCOUTING_PLAYLIST_NAME.
+        user_id: User ID of the person importing (for showlist ownership).
 
     Returns:
         A tuple of (Show, not_found_artists).
@@ -262,10 +263,8 @@ def _scout_submission(
     Raises:
         ValueError: If the playlist can't be created or host not authenticated.
     """
-    if not playlist_name:
-        playlist_name = SCOUTING_PLAYLIST_NAME
-
     spotify = get_host_spotify_api()
+    database = get_db()
 
     artist_spotify_ids: list[str] = []
     all_track_uris: list[str] = []
@@ -293,13 +292,23 @@ def _scout_submission(
             )
             all_track_uris.extend(t.uri for t in top_tracks)
 
-    playlist = spotify.get_or_create_playlist(playlist_name)
-    if playlist is None:
-        raise ValueError("Failed to create Scouting playlist.")
+    # Get or create default showlist
+    showlist = database.get_or_create_default_showlist(user_id)
+    spotify_playlist_id = showlist.spotify_playlist_id
 
+    # Ensure Spotify playlist exists
+    if not spotify_playlist_id:
+        spotify_playlist = spotify.get_or_create_playlist("giglz")
+        if spotify_playlist is None:
+            raise ValueError("Failed to create giglz playlist on Spotify.")
+        database.update_showlist_spotify_id(showlist.id, spotify_playlist.id)
+        spotify_playlist_id = spotify_playlist.id
+
+    # Add tracks to Spotify playlist
     if all_track_uris:
-        spotify.add_tracks_to_playlist(playlist.id, all_track_uris)
+        spotify.add_tracks_to_playlist(spotify_playlist_id, all_track_uris)
 
+    # Create show
     show = Show.from_submission(
         submission=submission,
         artist_spotify_ids=artist_spotify_ids,
@@ -307,51 +316,65 @@ def _scout_submission(
         created_at=datetime.now(timezone.utc).isoformat(),
     )
 
+    # Save show and link to showlist
+    database.save_show(show)
+    database.add_show_to_showlist(showlist.id, show.id, user_id)
+
     return show, not_found
 
 
 @app.route("/")
 def home():
-    """Render the home page with import forms and playlist list."""
-    playlists = get_db().get_all_playlists()
-    return flask.render_template("home.html", playlists=playlists)
+    """Render the home page with import forms and showlist list."""
+    showlists = get_db().get_all_showlists()
+    return flask.render_template("home.html", showlists=showlists)
 
 
-@app.route("/playlist/<name>")
-def playlist_view(name: str):
-    """View shows for a specific playlist (with player)."""
-    shows = get_db().get_shows_by_playlist(name)
-    if not shows:
+@app.route("/lineups")
+def all_showlists():
+    """List all showlists."""
+    showlists = get_db().get_all_showlists()
+    return flask.render_template("showlists.html", showlists=showlists)
+
+
+@app.route("/lineup/<name>")
+def showlist_view(name: str):
+    """View shows for a specific showlist (with player)."""
+    showlist = get_db().get_showlist_by_name(name)
+    if not showlist:
         flask.abort(404)
-    # Get the canonical name from the first show (preserves case)
-    playlist_name = shows[0].playlist_name
+    shows = get_db().get_shows_for_showlist(showlist.id)
     return flask.render_template(
-        "playlist.html",
+        "showlist.html",
+        showlist=showlist,
         shows=shows,
-        playlist_name=playlist_name,
         with_player=True,
     )
 
 
-@app.route("/playlist/<name>/shows")
-def playlist_shows_only(name: str):
-    """View shows for a playlist (cards only, no player)."""
-    shows = get_db().get_shows_by_playlist(name)
-    if not shows:
+@app.route("/lineup/<name>/shows")
+def showlist_shows_only(name: str):
+    """View shows for a showlist (cards only, no player)."""
+    showlist = get_db().get_showlist_by_name(name)
+    if not showlist:
         flask.abort(404)
-    playlist_name = shows[0].playlist_name
+    shows = get_db().get_shows_for_showlist(showlist.id)
     return flask.render_template(
-        "playlist.html",
+        "showlist.html",
+        showlist=showlist,
         shows=shows,
-        playlist_name=playlist_name,
         with_player=False,
     )
 
 
 @app.route("/add-show", methods=["POST"])
-@require_host
 def add_show():
     """Handle the add-show form submission."""
+    user_id = flask.session.get("user_id")
+    if not user_id:
+        flask.flash("Please log in to add shows.")
+        return flask.redirect(flask.url_for("home"))
+
     raw_artists = flask.request.form.get("artists", "")
     artists = [a.strip() for a in raw_artists.split(",") if a.strip()]
     venue = flask.request.form.get("venue", "")
@@ -367,12 +390,10 @@ def add_show():
     )
 
     try:
-        show, not_found = _scout_submission(submission)
+        show, not_found = _scout_submission(submission, user_id)
     except ValueError as e:
         flask.flash(str(e))
         return flask.redirect(flask.url_for("home"))
-
-    get_db().save_show(show)
 
     found_count = len(artists) - len(not_found)
     msg = (
@@ -386,7 +407,7 @@ def add_show():
     return flask.redirect(flask.url_for("home"))
 
 
-def _import_url(url: str) -> Show:
+def _import_url(url: str, user_id: str) -> Show:
     """Extract show data from a URL and run the Spotify pipeline.
 
     Returns:
@@ -399,15 +420,16 @@ def _import_url(url: str) -> Show:
     submission = extractor.extract_show(url)
     if submission is None:
         raise ValueError(f"No data extracted from {url}")
-    show, _not_found = _scout_submission(submission)
+    show, _not_found = _scout_submission(submission, user_id)
     return show
 
 
-def process_single_url(url: str) -> tuple[Show | None, ImportedUrl]:
+def process_single_url(url: str, user_id: str) -> tuple[Show | None, ImportedUrl]:
     """Process a single URL: normalize, dedup, extract, and build ImportedUrl.
 
     Args:
         url: Raw ticket URL to process.
+        user_id: User ID of the person importing.
 
     Returns:
         (show, imported_url) — show is None if skipped or failed.
@@ -428,7 +450,7 @@ def process_single_url(url: str) -> tuple[Show | None, ImportedUrl]:
         )
 
     try:
-        show = _import_url(url)
+        show = _import_url(url, user_id)
         return show, ImportedUrl(
             url=normalized,
             status=ImportStatus.SUCCESS,
@@ -451,6 +473,7 @@ def process_single_url(url: str) -> tuple[Show | None, ImportedUrl]:
 
 def extract_data_from_urls(
     urls: list[str],
+    user_id: str,
 ) -> tuple[list[Show], list[ImportedUrl], list[str], list[str]]:
     """Extract show data from ticket URLs, with dedup and error tracking.
 
@@ -459,6 +482,7 @@ def extract_data_from_urls(
 
     Args:
         urls: Raw ticket URLs to process.
+        user_id: User ID of the person importing.
 
     Returns:
         A tuple of (shows, imported_urls, failures, skipped_urls):
@@ -473,7 +497,7 @@ def extract_data_from_urls(
     imported_urls: list[ImportedUrl] = []
 
     for url in urls:
-        show, imported_url = process_single_url(url)
+        show, imported_url = process_single_url(url, user_id)
 
         if imported_url.status == ImportStatus.SKIPPED:
             skipped_urls.append(url)
@@ -489,9 +513,13 @@ def extract_data_from_urls(
 
 
 @app.route("/import-shows", methods=["POST"])
-@require_host
 def import_shows():
     """Import shows from a list of ticket URLs with incremental saves."""
+    user_id = flask.session.get("user_id")
+    if not user_id:
+        flask.flash("Please log in to import shows.")
+        return flask.redirect(flask.url_for("home"))
+
     raw_urls = flask.request.form.get("urls", "")
 
     urls = [u.strip() for u in raw_urls.splitlines() if u.strip()]
@@ -503,14 +531,14 @@ def import_shows():
     failures: list[str] = []
 
     for url in urls:
-        show, imported_url = process_single_url(url)
+        show, imported_url = process_single_url(url, user_id)
 
         if imported_url.status == ImportStatus.SKIPPED:
             results["skipped"] += 1
             continue
 
         # Save immediately (crash-resilient)
-        get_db().record_import(imported_url, show)
+        get_db().record_import(imported_url)
 
         if imported_url.status == ImportStatus.SUCCESS:
             results["imported"] += 1
@@ -534,7 +562,6 @@ def import_shows():
 
 
 @app.route("/import-shows/stream", methods=["POST"])
-@require_host
 def import_shows_stream():
     """Import shows with SSE streaming for real-time UI updates.
 
@@ -542,6 +569,10 @@ def import_shows_stream():
     - {type: "progress", url, status, show?, error?, imported, failed, skipped, total}
     - {type: "complete", imported, failed, skipped, tracks, total}
     """
+    user_id = flask.session.get("user_id")
+    if not user_id:
+        return flask.jsonify({"error": "Not logged in"}), 401
+
     raw_urls = flask.request.form.get("urls", "")
     urls = [u.strip() for u in raw_urls.splitlines() if u.strip()]
 
@@ -556,7 +587,7 @@ def import_shows_stream():
         database = get_db()
 
         for i, url in enumerate(urls):
-            show, imported_url = process_single_url(url)
+            show, imported_url = process_single_url(url, user_id)
 
             event = {
                 "type": "progress",
@@ -569,7 +600,7 @@ def import_shows_stream():
             if imported_url.status == ImportStatus.SKIPPED:
                 results["skipped"] += 1
             elif imported_url.status == ImportStatus.SUCCESS:
-                database.record_import(imported_url, show)
+                database.record_import(imported_url)
                 results["imported"] += 1
                 results["tracks"] += len(show.track_uris)  # type: ignore
                 event["show"] = {
@@ -639,13 +670,14 @@ def parse_shows_csv(file) -> list[ShowSubmission]:
 
 
 @app.route("/import-shows/csv", methods=["POST"])
-@require_host
 def import_shows_csv():
     """Import shows from uploaded CSV file."""
+    user_id = flask.session.get("user_id")
+    if not user_id:
+        flask.flash("Please log in to import shows.")
+        return flask.redirect(flask.url_for("home"))
+
     file = flask.request.files.get("csv_file")
-    playlist_name = flask.request.form.get("playlist_name", "").strip()
-    if not playlist_name:
-        playlist_name = SCOUTING_PLAYLIST_NAME
 
     if not file or not file.filename:
         flask.flash("No file uploaded.")
@@ -667,8 +699,7 @@ def import_shows_csv():
 
     for submission in submissions:
         try:
-            show, not_found = _scout_submission(submission, playlist_name=playlist_name)
-            get_db().save_show(show)
+            show, not_found = _scout_submission(submission, user_id)
             results["imported"] += 1
             results["tracks"] += len(show.track_uris)
             not_found_all.extend(not_found)
@@ -814,49 +845,6 @@ def api_now_playing():
     return flask.jsonify(
         {"playing": True, "is_scouted": is_scouted, **track.model_dump()}
     )
-
-
-@app.route("/playlist")
-def view_playlist():
-    """Show the contents of the Scouting playlist."""
-    # TODO: fetch playlist tracks from Spotify, render a playlist page
-    flask.flash("Not implemented yet.")
-    try:
-        spotify = get_spotify_api()
-        user_playlist = spotify.get_user_playlist(SCOUTING_PLAYLIST_NAME)
-        if user_playlist:
-            flask.flash(user_playlist.model_dump_json())
-    except ValueError as e:
-        flask.flash(str(e))
-    return flask.redirect(flask.url_for("home"))
-
-
-@app.route("/playlist/clear", methods=["POST"])
-@require_host
-def clear_playlist():
-    """Remove all tracks from the Scouting playlist and reset local data."""
-    try:
-        spotify = get_host_spotify_api()
-    except ValueError as e:
-        flask.flash(str(e))
-        return flask.redirect(flask.url_for("home"))
-
-    playlist = spotify.get_user_playlist(SCOUTING_PLAYLIST_NAME)
-    if not playlist:
-        flask.flash(f"No playlist named '{SCOUTING_PLAYLIST_NAME}' found.")
-        return flask.redirect(flask.url_for("home"))
-
-    try:
-        spotify.clear_playlist(playlist.id)
-    except Exception as e:
-        logger.warning("Failed to clear playlist: %s", e)
-        flask.flash(f"Failed to clear playlist: {e}")
-        return flask.redirect(flask.url_for("home"))
-
-    get_db().clear_all()
-
-    flask.flash("Scouting playlist and all shows cleared.")
-    return flask.redirect(flask.url_for("home"))
 
 
 if __name__ == "__main__":
