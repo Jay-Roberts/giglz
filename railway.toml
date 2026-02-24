@@ -1,9 +1,2 @@
-[build]
-builder = "nixpacks"
-
 [deploy]
 startCommand = "flask db upgrade && gunicorn app:app --bind 0.0.0.0:$PORT"
-healthcheckPath = "/"
-healthcheckTimeout = 30
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
