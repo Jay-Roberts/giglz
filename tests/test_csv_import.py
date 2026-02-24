@@ -155,7 +155,7 @@ class TestImportShowsCsvRoute:
         """Redirect with flash when no file uploaded."""
         response = host_client.post("/import-shows/csv", data={})
         assert response.status_code == 302
-        assert response.location == "/"
+        assert response.location == "/import"
 
     def test_empty_filename_flashes_error(self, host_client):
         """Redirect with flash when file has no filename."""

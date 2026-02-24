@@ -60,3 +60,7 @@ def setup_logging() -> None:
 
 # User-facing display name for ShowLists (internal name is "ShowList")
 SHOWLIST_DISPLAY_NAME = "Lineup"
+
+# Scout Gig feature - hot-swap playlist for exploring a show's lineup
+SCOUT_GIG_CTA = "Scout this gig"
+SCOUT_GIG_PLAYLIST_NAME = "Now Scouting"

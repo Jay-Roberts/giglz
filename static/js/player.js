@@ -35,6 +35,7 @@ window.GiglzPlayer = (function() {
             albumLoading: document.getElementById('album-loading'),
             trackName: document.getElementById('player-track-name'),
             artistName: document.getElementById('player-artist-name'),
+            showContext: document.getElementById('player-show-context'),
             btnPlay: document.getElementById('btn-play'),
             btnPrev: document.getElementById('btn-prev'),
             btnNext: document.getElementById('btn-next'),
@@ -69,6 +70,7 @@ window.GiglzPlayer = (function() {
             bigHeartBroken: document.getElementById('big-heart-broken'),
             loveFeedback: document.getElementById('love-feedback'),
             notScoutedMsg: document.getElementById('not-scouted-msg'),
+            btnScoutGig: document.getElementById('btn-scout-gig'),
         };
     }
 
@@ -82,12 +84,13 @@ window.GiglzPlayer = (function() {
         }
     }
 
-    function updateTrackDisplay(track) {
+    function updateTrackDisplay(track, showContext = null) {
         if (!track) {
             if (el.trackName) el.trackName.textContent = usePolling ? 'Nothing playing' : 'Connect Spotify to Giglz Player';
             if (el.artistName) el.artistName.textContent = '';
             if (el.albumArt) el.albumArt.src = '';
             el.albumLoading?.classList.remove('hidden');
+            el.showContext?.classList.add('hidden');
             return;
         }
 
@@ -97,6 +100,14 @@ window.GiglzPlayer = (function() {
         if (track.albumArt) {
             el.albumLoading?.classList.add('hidden');
             if (el.albumArt) el.albumArt.src = track.albumArt;
+        }
+
+        // Show context (venue + date) if available
+        if (showContext && showContext.venue && el.showContext) {
+            el.showContext.textContent = `${showContext.venue} · ${showContext.date}`;
+            el.showContext.classList.remove('hidden');
+        } else {
+            el.showContext?.classList.add('hidden');
         }
 
         // Sync expanded player if visible
@@ -130,6 +141,8 @@ window.GiglzPlayer = (function() {
             // Disable love button
             el.btnLove?.classList.add('cursor-not-allowed', 'opacity-50');
             el.btnLoveBig?.classList.add('cursor-not-allowed', 'opacity-50');
+            // Hide scout gig button
+            el.btnScoutGig?.classList.add('hidden');
         } else {
             // Normal heart states
             el.iconHeartBroken?.classList.add('hidden');
@@ -143,6 +156,8 @@ window.GiglzPlayer = (function() {
             // Expanded player
             el.bigHeartEmpty?.classList.toggle('hidden', loved);
             el.bigHeartFilled?.classList.toggle('hidden', !loved);
+            // Show scout gig button only when loved
+            el.btnScoutGig?.classList.toggle('hidden', !loved);
         }
     }
 
@@ -253,6 +268,49 @@ window.GiglzPlayer = (function() {
         await toggleLove();
         if (isLoved) {
             playLoveAnimation();
+        }
+    }
+
+    async function handleScoutGig() {
+        if (!currentTrack?.uri || !isScouted) return;
+
+        // Disable button while processing
+        if (el.btnScoutGig) {
+            el.btnScoutGig.disabled = true;
+            el.btnScoutGig.textContent = 'Scouting...';
+        }
+
+        try {
+            const result = await GiglzAPI.scoutGig(currentTrack.uri);
+
+            if (result.success) {
+                // Show success feedback
+                if (el.btnScoutGig) {
+                    const artists = result.show.artists.slice(0, 2).join(', ');
+                    el.btnScoutGig.textContent = `Now scouting ${artists}`;
+                    el.btnScoutGig.classList.remove('border-gig-cyan/50', 'text-gig-cyan', 'bg-gig-cyan/20');
+                    el.btnScoutGig.classList.add('border-gig-pink/50', 'text-gig-pink', 'bg-gig-pink/20');
+                }
+
+                // Reset after delay
+                setTimeout(() => {
+                    if (el.btnScoutGig) {
+                        el.btnScoutGig.innerHTML = el.btnScoutGig.dataset.originalText || 'Scout this gig &rarr;';
+                        el.btnScoutGig.classList.add('border-gig-cyan/50', 'text-gig-cyan', 'bg-gig-cyan/20');
+                        el.btnScoutGig.classList.remove('border-gig-pink/50', 'text-gig-pink', 'bg-gig-pink/20');
+                        el.btnScoutGig.disabled = false;
+                    }
+                }, 3000);
+            }
+        } catch (e) {
+            console.error('Scout gig failed:', e);
+            if (el.btnScoutGig) {
+                el.btnScoutGig.textContent = 'Failed - try again';
+                el.btnScoutGig.disabled = false;
+                setTimeout(() => {
+                    el.btnScoutGig.innerHTML = el.btnScoutGig.dataset.originalText || 'Scout this gig &rarr;';
+                }, 2000);
+            }
         }
     }
 
@@ -458,7 +516,13 @@ window.GiglzPlayer = (function() {
                 albumArt: data.album_art_url,
             };
 
-            updateTrackDisplay(currentTrack);
+            // Build show context if available
+            const showContext = data.show_venue ? {
+                venue: data.show_venue,
+                date: data.show_date,
+            } : null;
+
+            updateTrackDisplay(currentTrack, showContext);
             updatePlayPauseButton(!data.is_playing);
 
             // Check scouted status from API response
@@ -471,6 +535,28 @@ window.GiglzPlayer = (function() {
         } catch (e) {
             console.error('Polling failed:', e);
         }
+    }
+
+    // ---------------------
+    // Private: Touch Gestures
+    // ---------------------
+    let touchStartY = 0;
+
+    function wireSwipeGestures() {
+        if (!el.playerBar) return;
+
+        el.playerBar.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        el.playerBar.addEventListener('touchend', (e) => {
+            const deltaY = e.changedTouches[0].clientY - touchStartY;
+
+            // Swipe up = expand player
+            if (deltaY < -30) {
+                showExpanded();
+            }
+        }, { passive: true });
     }
 
     // ---------------------
@@ -509,6 +595,12 @@ window.GiglzPlayer = (function() {
         });
         el.btnLoveBig?.addEventListener('click', handleBigHeartClick);
 
+        // Scout gig button
+        if (el.btnScoutGig) {
+            el.btnScoutGig.dataset.originalText = el.btnScoutGig.innerHTML;
+            el.btnScoutGig.addEventListener('click', handleScoutGig);
+        }
+
         // Close expanded on Escape or clicking overlay
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && isExpandedVisible()) {
@@ -533,6 +625,7 @@ window.GiglzPlayer = (function() {
         init: function() {
             cacheElements();
             wireControls();
+            wireSwipeGestures();
 
             if (canUseWebPlaybackSDK()) {
                 window.onSpotifyWebPlaybackSDKReady = initSDKPlayer;

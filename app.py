@@ -7,6 +7,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 import flask
 import spotipy
@@ -18,6 +19,8 @@ from config import (
     FLASK_SECRET_KEY,
     HOST_USER_ID,
     PORT,
+    SCOUT_GIG_CTA,
+    SCOUT_GIG_PLAYLIST_NAME,
     SHARE_ON_NETWORK,
     SHOWLIST_DISPLAY_NAME,
     SQLALCHEMY_DATABASE_URI,
@@ -70,14 +73,22 @@ def get_db() -> Database:
 app = create_app()
 
 
+# Static template globals - search here to see what's injected into all templates
+TEMPLATE_GLOBALS: dict[str, Any] = {
+    "app_name": APP_NAME,
+    "app_display_name": APP_DISPLAY_NAME,
+    "share_on_network": SHARE_ON_NETWORK,
+    "showlist_display_name": SHOWLIST_DISPLAY_NAME,
+    "scout_gig_cta": SCOUT_GIG_CTA,
+}
+
+
 @app.context_processor
 def inject_globals():
     """Make config flags and auth info available to all templates."""
     return {
-        "app_name": APP_NAME,
-        "app_display_name": APP_DISPLAY_NAME,
-        "share_on_network": SHARE_ON_NETWORK,
-        "showlist_display_name": SHOWLIST_DISPLAY_NAME,
+        **TEMPLATE_GLOBALS,
+        # Dynamic - requires request context
         "current_user_id": flask.session.get("user_id"),
         "current_user_name": flask.session.get("user_name"),
         "is_host": flask.session.get("user_id") == HOST_USER_ID,
@@ -325,9 +336,31 @@ def _scout_submission(
 
 @app.route("/")
 def home():
-    """Render the home page with import forms and showlist list."""
-    showlists = get_db().get_all_showlists()
-    return flask.render_template("home.html", showlists=showlists)
+    """Render the home page with playlists front and center."""
+    database = get_db()
+    showlists = database.get_all_showlists()
+
+    # Enrich showlists with show/track counts for display
+    enriched_showlists = []
+    for sl in showlists:
+        shows = database.get_shows_for_showlist(sl.id)
+        enriched_showlists.append(
+            {
+                "id": sl.id,
+                "name": sl.name,
+                "spotify_playlist_id": sl.spotify_playlist_id,
+                "show_count": len(shows),
+                "track_count": sum(len(s.track_uris) for s in shows),
+            }
+        )
+
+    return flask.render_template("home.html", showlists=enriched_showlists)
+
+
+@app.route("/import")
+def import_page():
+    """Render the import page with all import forms."""
+    return flask.render_template("import.html")
 
 
 @app.route("/lineups")
@@ -358,9 +391,67 @@ def create_showlist():
 @app.route("/shows")
 def all_shows():
     """View all imported shows with selection UI."""
-    shows = get_db().get_all_shows()
+    sort = flask.request.args.get("sort", "date")
+    user_id = flask.session.get("user_id")
+    shows = get_db().get_all_shows(sort=sort, user_id=user_id)
     showlists = get_db().get_all_showlists()
-    return flask.render_template("shows.html", shows=shows, showlists=showlists)
+    return flask.render_template(
+        "shows.html", shows=shows, showlists=showlists, sort=sort
+    )
+
+
+@app.route("/playlist/create", methods=["POST"])
+def create_playlist_with_shows():
+    """Create a new lineup with selected shows and sync to Spotify."""
+    user_id = flask.session.get("user_id")
+    if not user_id:
+        flask.flash("Please log in to create a playlist.")
+        return flask.redirect(flask.url_for("home"))
+
+    database = get_db()
+
+    # Get playlist name and show IDs
+    name = flask.request.form.get("name", "").strip()
+    if not name:
+        flask.flash("Please enter a name for your playlist.")
+        return flask.redirect(flask.url_for("all_shows"))
+
+    show_ids = flask.request.form.getlist("show_ids")
+    if not show_ids:
+        flask.flash("No shows selected.")
+        return flask.redirect(flask.url_for("all_shows"))
+
+    # Create showlist in database (handles unique naming)
+    showlist = database.create_showlist(name, user_id)
+
+    # Get Spotify API (uses host account for playlist operations)
+    try:
+        spotify = get_host_spotify_api()
+    except ValueError as e:
+        flask.flash(f"Spotify error: {e}")
+        return flask.redirect(flask.url_for("all_shows"))
+
+    # Create Spotify playlist
+    spotify_playlist = spotify.get_or_create_playlist(showlist.name)
+    if spotify_playlist is None:
+        flask.flash(f"Failed to create Spotify playlist for {showlist.name}")
+        return flask.redirect(flask.url_for("all_shows"))
+    database.update_showlist_spotify_id(showlist.id, spotify_playlist.id)
+
+    # Link shows to showlist and collect tracks
+    all_track_uris: list[str] = []
+    for show_id in show_ids:
+        show = database.get_show(show_id)
+        if show:
+            database.add_show_to_showlist(showlist.id, show_id, user_id)
+            all_track_uris.extend(show.track_uris)
+
+    # Add tracks to Spotify playlist
+    if all_track_uris:
+        spotify.add_tracks_to_playlist(spotify_playlist.id, all_track_uris)
+
+    flask.flash(f"Created playlist '{showlist.name}' with {len(show_ids)} show(s)")
+    return flask.redirect(flask.url_for("showlist_view", name=showlist.name))
 
 
 @app.route("/lineup/<name>/add-shows", methods=["POST"])
@@ -420,11 +511,16 @@ def showlist_view(name: str):
     showlist = get_db().get_showlist_by_name(name)
     if not showlist:
         flask.abort(404)
-    shows = get_db().get_shows_for_showlist(showlist.id)
+
+    sort = flask.request.args.get("sort", "date")
+    user_id = flask.session.get("user_id")
+    shows = get_db().get_shows_for_showlist(showlist.id, sort=sort, user_id=user_id)
+
     return flask.render_template(
         "showlist.html",
         showlist=showlist,
         shows=shows,
+        sort=sort,
         with_player=True,
     )
 
@@ -450,7 +546,7 @@ def add_show():
     user_id = flask.session.get("user_id")
     if not user_id:
         flask.flash("Please log in to add shows.")
-        return flask.redirect(flask.url_for("home"))
+        return flask.redirect(flask.url_for("import_page"))
 
     raw_artists = flask.request.form.get("artists", "")
     artists = [a.strip() for a in raw_artists.split(",") if a.strip()]
@@ -460,7 +556,7 @@ def add_show():
 
     if not artists or not venue or not date:
         flask.flash("Artists, venue, and date are required.")
-        return flask.redirect(flask.url_for("home"))
+        return flask.redirect(flask.url_for("import_page"))
 
     submission = ShowSubmission(
         artists=artists, venue=venue, date=date, ticket_url=ticket_url
@@ -470,7 +566,7 @@ def add_show():
         show, not_found = _scout_submission(submission, user_id)
     except ValueError as e:
         flask.flash(str(e))
-        return flask.redirect(flask.url_for("home"))
+        return flask.redirect(flask.url_for("import_page"))
 
     found_count = len(artists) - len(not_found)
     msg = (
@@ -481,7 +577,7 @@ def add_show():
         msg += f" Couldn't find: {', '.join(not_found)}"
     flask.flash(msg)
 
-    return flask.redirect(flask.url_for("home"))
+    return flask.redirect(flask.url_for("import_page"))
 
 
 def _import_url(url: str, user_id: str) -> Show:
@@ -595,14 +691,14 @@ def import_shows():
     user_id = flask.session.get("user_id")
     if not user_id:
         flask.flash("Please log in to import shows.")
-        return flask.redirect(flask.url_for("home"))
+        return flask.redirect(flask.url_for("import_page"))
 
     raw_urls = flask.request.form.get("urls", "")
 
     urls = [u.strip() for u in raw_urls.splitlines() if u.strip()]
     if not urls:
         flask.flash("Paste at least one URL.")
-        return flask.redirect(flask.url_for("home"))
+        return flask.redirect(flask.url_for("import_page"))
 
     results = {"imported": 0, "failed": 0, "skipped": 0, "tracks": 0}
     failures: list[str] = []
@@ -635,7 +731,7 @@ def import_shows():
     for failure in failures:
         flask.flash(failure)
 
-    return flask.redirect(flask.url_for("home"))
+    return flask.redirect(flask.url_for("import_page"))
 
 
 @app.route("/import-shows/stream", methods=["POST"])
@@ -752,24 +848,24 @@ def import_shows_csv():
     user_id = flask.session.get("user_id")
     if not user_id:
         flask.flash("Please log in to import shows.")
-        return flask.redirect(flask.url_for("home"))
+        return flask.redirect(flask.url_for("import_page"))
 
     file = flask.request.files.get("csv_file")
 
     if not file or not file.filename:
         flask.flash("No file uploaded.")
-        return flask.redirect(flask.url_for("home"))
+        return flask.redirect(flask.url_for("import_page"))
 
     try:
         submissions = parse_shows_csv(file)
     except Exception as e:
         logger.warning("Failed to parse CSV: %s", e)
         flask.flash(f"Failed to parse CSV: {e}")
-        return flask.redirect(flask.url_for("home"))
+        return flask.redirect(flask.url_for("import_page"))
 
     if not submissions:
         flask.flash("No valid shows found in CSV. Check format: artists,venue,date")
-        return flask.redirect(flask.url_for("home"))
+        return flask.redirect(flask.url_for("import_page"))
 
     results = {"imported": 0, "failed": 0, "tracks": 0}
     not_found_all: list[str] = []
@@ -793,7 +889,7 @@ def import_shows_csv():
             msg += f" (+{len(not_found_all) - 5} more)"
 
     flask.flash(msg)
-    return flask.redirect(flask.url_for("home"))
+    return flask.redirect(flask.url_for("import_page"))
 
 
 # --- Love Track API ---
@@ -876,6 +972,103 @@ def track_status(track_uri: str):
     return flask.jsonify(response.model_dump())
 
 
+@app.route("/api/scout-gig", methods=["POST"])
+def scout_gig():
+    """Hot-swap the user's Now Scouting playlist with a show's tracks.
+
+    Takes the current track URI, finds the most recent show containing it,
+    and transfers playback to a playlist with that show's tracks.
+
+    Request:
+        {"track_uri": "spotify:track:xxx"}
+
+    Response:
+        {"success": true, "show": {...}, "track_count": 30}
+    """
+    user_id = flask.session.get("user_id")
+    if not user_id:
+        return flask.jsonify({"error": "Not logged in"}), 401
+
+    data = flask.request.get_json()
+    if not data or not data.get("track_uri"):
+        return flask.jsonify({"error": "track_uri required"}), 400
+
+    track_uri = data["track_uri"]
+    database = get_db()
+
+    # Find shows containing this track, pick most recent by date
+    show_ids = database.get_shows_with_track(track_uri)
+    if not show_ids:
+        return flask.jsonify({"error": "Track not from a scouted show"}), 404
+
+    shows = [database.get_show(sid) for sid in show_ids]
+    shows = [s for s in shows if s is not None]
+    if not shows:
+        return flask.jsonify({"error": "Show not found"}), 404
+
+    # Sort by date descending, pick most recent
+    shows.sort(key=lambda s: s.date or "", reverse=True)
+    show = shows[0]
+
+    # Get Spotify API for current user (not host - this is user's playlist)
+    try:
+        spotify = get_spotify_api()
+    except ValueError as e:
+        return flask.jsonify({"error": str(e)}), 401
+
+    # Get or create the "Now Scouting" playlist on user's account
+    playlist = spotify.get_or_create_playlist(SCOUT_GIG_PLAYLIST_NAME)
+    if not playlist:
+        return flask.jsonify({"error": "Failed to create playlist"}), 500
+
+    # Clear and fill with show's tracks
+    spotify.clear_playlist(playlist.id)
+
+    # Ensure current track is first if it's in the show
+    track_uris = list(show.track_uris)
+    if track_uri in track_uris:
+        track_uris.remove(track_uri)
+        track_uris.insert(0, track_uri)
+
+    spotify.add_tracks_to_playlist(playlist.id, track_uris)
+
+    # Transfer playback to the playlist, starting from current track
+    try:
+        spotify.transfer_playback_to_playlist(playlist.id, track_uri)
+    except Exception as e:
+        # Playback transfer can fail (no premium, no active device, etc.)
+        # Playlist is still updated, so return partial success
+        logger.warning("Playback transfer failed: %s", e)
+        return flask.jsonify(
+            {
+                "success": True,
+                "playback_transferred": False,
+                "error": "Playlist updated but playback transfer failed",
+                "show": {
+                    "id": show.id,
+                    "venue": show.venue,
+                    "date": show.date,
+                    "artists": [a.name for a in show.artists],
+                },
+                "track_count": len(track_uris),
+            }
+        )
+
+    return flask.jsonify(
+        {
+            "success": True,
+            "playback_transferred": True,
+            "show": {
+                "id": show.id,
+                "venue": show.venue,
+                "date": show.date,
+                "artists": [a.name for a in show.artists],
+            },
+            "track_count": len(track_uris),
+        }
+    )
+
+
 @app.route("/api/spotify-token")
 def api_spotify_token():
     """Return current user's access token for Web Playback SDK."""
@@ -903,6 +1096,7 @@ def api_now_playing():
     Response:
         {playing: false} if nothing playing or not a track.
         {playing: true, is_scouted: bool, track_name, artist_name, ...} if playing.
+        If scouted, includes show_venue and show_date for context.
     """
     user_id = flask.session.get("user_id")
     if not user_id:
@@ -917,11 +1111,20 @@ def api_now_playing():
     if not track:
         return flask.jsonify({"playing": False})
 
-    is_scouted = get_db().is_track_scouted(track.track_uri)
+    database = get_db()
+    show_ids = database.get_shows_with_track(track.track_uri)
+    is_scouted = len(show_ids) > 0
 
-    return flask.jsonify(
-        {"playing": True, "is_scouted": is_scouted, **track.model_dump()}
-    )
+    response = {"playing": True, "is_scouted": is_scouted, **track.model_dump()}
+
+    # Add show context if track is scouted
+    if show_ids:
+        show = database.get_show(show_ids[0])
+        if show:
+            response["show_venue"] = show.venue
+            response["show_date"] = show.date
+
+    return flask.jsonify(response)
 
 
 if __name__ == "__main__":

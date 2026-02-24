@@ -45,6 +45,7 @@ class Show(BaseModel):
     created_at: str
     artists: list[Artist]
     track_uris: list[str] = []
+    loved_tracks: list[str] | None = None  # Populated at query time for sorting/display
 
     @model_validator(mode="after")
     def compute_id(self) -> "Show":

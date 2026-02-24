@@ -162,10 +162,51 @@ class Database:
             return None
         return self._row_to_show(row)
 
-    def get_all_shows(self) -> list[Show]:
-        """Get all shows."""
-        rows = ShowModel.query.order_by(ShowModel.created_at.desc()).all()
-        return [self._row_to_show(r) for r in rows]
+    def get_all_shows(
+        self,
+        sort: str = "date",
+        user_id: str | None = None,
+    ) -> list[Show]:
+        """Get all shows with sorting.
+
+        Args:
+            sort: Sort order - "date" (ascending), "hearts" (descending),
+                  or "combined" (upcoming shows with hearts first).
+            user_id: Required for "hearts" and "combined" sort to count loved tracks.
+
+        Returns:
+            List of Show objects with loved_tracks populated if user_id provided.
+        """
+        rows = ShowModel.query.all()
+        shows = [self._row_to_show(r) for r in rows]
+
+        # Populate loved_tracks if user_id provided
+        if user_id:
+            loved_uris = {
+                r.track_uri
+                for r in UserLovedTrack.query.filter_by(user_id=user_id).all()
+            }
+            for show in shows:
+                show.loved_tracks = [
+                    uri for uri in show.track_uris if uri in loved_uris
+                ]
+
+        # Apply sorting
+        if sort == "hearts" and user_id:
+            shows.sort(key=lambda s: len(s.loved_tracks or []), reverse=True)
+        elif sort == "combined" and user_id:
+            shows.sort(
+                key=lambda s: (
+                    0 if s.loved_tracks else 1,
+                    -len(s.loved_tracks or []),
+                    s.date or "",
+                )
+            )
+        else:
+            # Default: sort by date ascending
+            shows.sort(key=lambda s: s.date or "")
+
+        return shows
 
     def _row_to_show(self, row: ShowModel) -> Show:
         """Reconstruct Show from normalized DB rows."""
@@ -220,8 +261,23 @@ class Database:
         ShowListShow.query.filter_by(showlist_id=showlist_id, show_id=show_id).delete()
         db.session.commit()
 
-    def get_shows_for_showlist(self, showlist_id: str) -> list[Show]:
-        """Get all shows in a showlist."""
+    def get_shows_for_showlist(
+        self,
+        showlist_id: str,
+        sort: str = "date",
+        user_id: str | None = None,
+    ) -> list[Show]:
+        """Get all shows in a showlist with sorting.
+
+        Args:
+            showlist_id: The showlist to query.
+            sort: Sort order - "date" (ascending), "hearts" (descending),
+                  or "combined" (upcoming shows with hearts first).
+            user_id: Required for "hearts" and "combined" sort to count loved tracks.
+
+        Returns:
+            List of Show objects with loved_tracks populated if user_id provided.
+        """
         links = ShowListShow.query.filter_by(showlist_id=showlist_id).all()
         show_ids = [link.show_id for link in links]
 
@@ -230,6 +286,35 @@ class Database:
             show = self.get_show(show_id)
             if show:
                 shows.append(show)
+
+        # Populate loved_tracks if user_id provided
+        if user_id:
+            loved_uris = {
+                r.track_uri
+                for r in UserLovedTrack.query.filter_by(user_id=user_id).all()
+            }
+            for show in shows:
+                show.loved_tracks = [
+                    uri for uri in show.track_uris if uri in loved_uris
+                ]
+
+        # Apply sorting
+        if sort == "hearts" and user_id:
+            # Sort by loved track count descending
+            shows.sort(key=lambda s: len(s.loved_tracks or []), reverse=True)
+        elif sort == "combined" and user_id:
+            # Sort: shows with hearts first (by hearts desc), then by date
+            shows.sort(
+                key=lambda s: (
+                    0 if s.loved_tracks else 1,  # Has hearts first
+                    -len(s.loved_tracks or []),  # Then by heart count desc
+                    s.date or "",  # Then by date asc
+                )
+            )
+        else:
+            # Default: sort by date ascending
+            shows.sort(key=lambda s: s.date or "")
+
         return shows
 
     def get_showlists_for_show(self, show_id: str) -> list[ShowList]:

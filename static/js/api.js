@@ -63,5 +63,10 @@ window.GiglzAPI = (function() {
         getTrackStatus: function(uri) {
             return getJSON('/api/track/' + encodeURIComponent(uri) + '/status');
         },
+
+        // Scout Gig - hot-swap Now Scouting playlist
+        scoutGig: function(trackUri) {
+            return postJSON('/api/scout-gig', { track_uri: trackUri });
+        },
     };
 })();

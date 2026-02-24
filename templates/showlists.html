@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}All {{ showlist_display_name }}s - {{ app_name }}{% endblock %}
+{% block title %}All Playlists - {{ app_name }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
-    <h2 class="font-pixel text-xl text-gig-pink">ALL_{{ showlist_display_name | upper }}S</h2>
+    <h2 class="font-pixel text-xl text-gig-pink">ALL_PLAYLISTS</h2>
 
     {% if showlists %}
     <div class="space-y-3">
@@ -25,7 +25,7 @@
     </div>
     {% else %}
     <div class="bg-gig-card rounded border border-gig-cyan/20 p-6 text-center">
-        <p class="text-gray-400">No {{ showlist_display_name | lower }}s yet. Import some shows to get started!</p>
+        <p class="text-gray-400">No playlists yet. Import some shows to get started!</p>
     </div>
     {% endif %}
 

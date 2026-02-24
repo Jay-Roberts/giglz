@@ -13,20 +13,55 @@
     </div>
 
     {% if shows %}
-    <form id="add-to-lineup-form" method="POST" action="">
-        <!-- Selection controls -->
-        <div class="bg-gig-card rounded border border-gig-cyan/20 p-4 mb-4 flex items-center justify-between gap-4 sticky top-0 z-10">
-            <div class="flex items-center gap-4">
-                <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
-                    <input type="checkbox" id="select-all" class="w-4 h-4 rounded border-gig-cyan/30 bg-gig-dark text-gig-pink focus:ring-gig-cyan">
-                    <span>Select all</span>
-                </label>
-                <span id="selection-count" class="text-xs text-gray-500 font-mono"></span>
-            </div>
+    <!-- Sort Controls -->
+    <div class="flex gap-2 mb-4 text-xs">
+        <span class="text-gray-500 self-center">Sort:</span>
+        <a href="?sort=date"
+           class="px-3 py-1.5 rounded transition-all
+                  {% if sort == 'date' or not sort %}bg-gig-pink text-gig-dark{% else %}bg-gig-card text-gray-400 hover:text-gig-cyan{% endif %}">
+            Date
+        </a>
+        <a href="?sort=hearts"
+           class="px-3 py-1.5 rounded transition-all
+                  {% if sort == 'hearts' %}bg-gig-pink text-gig-dark{% else %}bg-gig-card text-gray-400 hover:text-gig-cyan{% endif %}">
+            Hearts
+        </a>
+        <a href="?sort=combined"
+           class="px-3 py-1.5 rounded transition-all
+                  {% if sort == 'combined' %}bg-gig-pink text-gig-dark{% else %}bg-gig-card text-gray-400 hover:text-gig-cyan{% endif %}">
+            Best
+        </a>
+    </div>
 
-            {% if current_user_id and showlists %}
-            <div class="flex items-center gap-2">
-                <label class="text-sm text-gray-400">Add to:</label>
+    <!-- Selection controls (sticky header) -->
+    <div class="bg-gig-card rounded border border-gig-cyan/20 p-4 sticky top-0 z-10">
+        <div class="flex items-center justify-between mb-4">
+            <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+                <input type="checkbox" id="select-all" class="w-4 h-4 rounded border-gig-cyan/30 bg-gig-dark text-gig-pink focus:ring-gig-cyan">
+                <span>Select all</span>
+            </label>
+            <span id="selection-count" class="text-xs text-gray-500 font-mono"></span>
+        </div>
+
+        {% if current_user_id %}
+        <div class="flex flex-wrap gap-4">
+            <!-- Create new playlist -->
+            <form id="create-form" method="POST" action="{{ url_for('create_playlist_with_shows') }}" class="flex items-center gap-2">
+                <input type="text" name="name" id="new-playlist-name" placeholder="New playlist name"
+                    class="bg-gig-dark border border-gig-pink/30 rounded px-3 py-1.5 text-sm
+                           focus:border-gig-pink focus:outline-none placeholder-gray-500 w-40">
+                <button type="submit" id="create-btn"
+                    class="bg-gig-pink hover:bg-gig-pink-dim text-gig-dark font-bold uppercase tracking-wider
+                           rounded px-4 py-1.5 transition-all text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled>
+                    Create Playlist
+                </button>
+            </form>
+
+            {% if showlists %}
+            <!-- Add to existing -->
+            <form id="add-form" method="POST" action="" class="flex items-center gap-2">
+                <span class="text-sm text-gray-500">or</span>
                 <select id="lineup-select" name="lineup"
                     class="bg-gig-dark border border-gig-cyan/30 rounded px-3 py-1.5 text-sm
                            focus:border-gig-cyan focus:outline-none text-gray-100">
@@ -35,56 +70,53 @@
                     {% endfor %}
                 </select>
                 <button type="submit" id="add-btn"
-                    class="bg-gig-pink hover:bg-gig-pink-dim text-gig-dark font-bold uppercase tracking-wider
+                    class="bg-gig-cyan/20 hover:bg-gig-cyan/30 text-gig-cyan font-bold uppercase tracking-wider
                            rounded px-4 py-1.5 transition-all text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled>
-                    Add Selected
+                    Add to Existing
                 </button>
-            </div>
-            {% elif current_user_id %}
-            <p class="text-sm text-gray-500">
-                <a href="{{ url_for('home') }}" class="text-gig-cyan hover:text-gig-pink">Create a lineup</a> first
-            </p>
-            {% else %}
-            <p class="text-sm text-gray-500">Log in to add shows to lineups</p>
+            </form>
             {% endif %}
         </div>
+        {% else %}
+        <p class="text-sm text-gray-500">Log in to create playlists</p>
+        {% endif %}
+    </div>
 
-        <!-- Show list with checkboxes -->
-        <div class="space-y-3">
-            {% for show in shows %}
-            <label class="block cursor-pointer group">
-                <div class="bg-gig-card rounded p-4 border border-gig-cyan/20
-                            hover:border-gig-cyan/40 transition-all
-                            flex items-start gap-4"
-                     data-show-id="{{ show.id }}">
-                    <input type="checkbox" name="show_ids" value="{{ show.id }}"
-                        class="show-checkbox mt-1 w-4 h-4 rounded border-gig-cyan/30 bg-gig-dark text-gig-pink focus:ring-gig-cyan flex-shrink-0">
-                    <div class="flex-1 min-w-0">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <h3 class="font-bold text-gig-pink group-hover:text-gig-cyan transition">
-                                    {{ show.artists | map(attribute='name') | join(", ") }}
-                                </h3>
-                                <p class="text-sm text-gray-400 mt-1 font-mono">
-                                    {{ show.venue }} <span class="text-gig-cyan/40">//</span> {{ show.date }}
-                                </p>
-                            </div>
-                            <span class="text-xs bg-gig-cyan/20 text-gig-cyan px-2 py-1 rounded font-mono flex-shrink-0">
-                                {{ show.track_uris | length }} trx
-                            </span>
+    <!-- Show list with checkboxes -->
+    <div id="shows-list" class="space-y-3">
+        {% for show in shows %}
+        <label class="block cursor-pointer group">
+            <div class="bg-gig-card rounded p-4 border border-gig-cyan/20
+                        hover:border-gig-cyan/40 transition-all
+                        flex items-start gap-4"
+                 data-show-id="{{ show.id }}">
+                <input type="checkbox" name="show_ids" value="{{ show.id }}"
+                    class="show-checkbox mt-1 w-4 h-4 rounded border-gig-cyan/30 bg-gig-dark text-gig-pink focus:ring-gig-cyan flex-shrink-0">
+                <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-bold text-gig-pink group-hover:text-gig-cyan transition">
+                                {{ show.artists | map(attribute='name') | join(", ") }}
+                            </h3>
+                            <p class="text-sm text-gray-400 mt-1 font-mono">
+                                {{ show.venue }} <span class="text-gig-cyan/40">//</span> {{ show.date }}
+                            </p>
                         </div>
+                        <span class="text-xs bg-gig-cyan/20 text-gig-cyan px-2 py-1 rounded font-mono flex-shrink-0">
+                            {{ show.track_uris | length }} trx
+                        </span>
                     </div>
                 </div>
-            </label>
-            {% endfor %}
-        </div>
-    </form>
+            </div>
+        </label>
+        {% endfor %}
+    </div>
     {% else %}
     <div class="bg-gig-card rounded border border-gig-cyan/20 p-6 text-center">
         <p class="text-gray-400">No shows imported yet.</p>
-        <a href="{{ url_for('home') }}" class="inline-block mt-4 text-gig-cyan hover:text-gig-pink transition">
-            Import some shows →
+        <a href="{{ url_for('import_page') }}" class="inline-block mt-4 text-gig-cyan hover:text-gig-pink transition">
+            Import some shows &rarr;
         </a>
     </div>
     {% endif %}
@@ -97,25 +129,37 @@
 {% block scripts %}
 <script>
 (function() {
-    const form = document.getElementById('add-to-lineup-form');
+    const createForm = document.getElementById('create-form');
+    const addForm = document.getElementById('add-form');
     const selectAll = document.getElementById('select-all');
     const lineupSelect = document.getElementById('lineup-select');
+    const createBtn = document.getElementById('create-btn');
     const addBtn = document.getElementById('add-btn');
+    const nameInput = document.getElementById('new-playlist-name');
     const countEl = document.getElementById('selection-count');
     const checkboxes = document.querySelectorAll('.show-checkbox');
 
-    if (!form || !checkboxes.length) return;
+    if (!checkboxes.length) return;
+
+    function getSelectedIds() {
+        return Array.from(document.querySelectorAll('.show-checkbox:checked'))
+            .map(cb => cb.value);
+    }
 
     function updateState() {
         const checked = document.querySelectorAll('.show-checkbox:checked');
         const count = checked.length;
+        const hasName = nameInput && nameInput.value.trim().length > 0;
 
         // Update count display
         if (countEl) {
             countEl.textContent = count > 0 ? `${count} selected` : '';
         }
 
-        // Update button state
+        // Update button states
+        if (createBtn) {
+            createBtn.disabled = count === 0 || !hasName;
+        }
         if (addBtn) {
             addBtn.disabled = count === 0;
         }
@@ -127,16 +171,35 @@
         }
     }
 
-    // Update form action based on selected lineup
-    function updateFormAction() {
-        if (lineupSelect) {
+    // Copy selected show IDs to form before submit
+    function copyShowIdsToForm(form) {
+        // Remove any existing hidden inputs
+        form.querySelectorAll('input[name="show_ids"]').forEach(el => el.remove());
+
+        // Add hidden inputs for selected shows
+        getSelectedIds().forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'show_ids';
+            input.value = id;
+            form.appendChild(input);
+        });
+    }
+
+    // Update add form action based on selected lineup
+    function updateAddFormAction() {
+        if (addForm && lineupSelect) {
             const lineup = lineupSelect.value;
-            form.action = `/lineup/${encodeURIComponent(lineup)}/add-shows`;
+            addForm.action = `/lineup/${encodeURIComponent(lineup)}/add-shows`;
         }
     }
 
     // Event listeners
     checkboxes.forEach(cb => cb.addEventListener('change', updateState));
+
+    if (nameInput) {
+        nameInput.addEventListener('input', updateState);
+    }
 
     if (selectAll) {
         selectAll.addEventListener('change', function() {
@@ -146,8 +209,20 @@
     }
 
     if (lineupSelect) {
-        lineupSelect.addEventListener('change', updateFormAction);
-        updateFormAction(); // Set initial action
+        lineupSelect.addEventListener('change', updateAddFormAction);
+        updateAddFormAction();
+    }
+
+    // Copy show IDs before form submit
+    if (createForm) {
+        createForm.addEventListener('submit', function(e) {
+            copyShowIdsToForm(createForm);
+        });
+    }
+    if (addForm) {
+        addForm.addEventListener('submit', function(e) {
+            copyShowIdsToForm(addForm);
+        });
     }
 
     updateState();

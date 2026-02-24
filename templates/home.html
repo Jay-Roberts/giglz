@@ -1,112 +1,16 @@
 {% extends "base.html" %}
-{% from "macros.html" import input, textarea, button, card, show_card %}
+{% from "macros.html" import card %}
 
 {% block content %}
 <div class="space-y-8">
 
-    {% if current_user_id %}
-    <!-- Import from CSV (primary flow) -->
-    {% call card("IMPORT_SHOWS") %}
-        <form method="POST" action="/import-shows/csv" enctype="multipart/form-data" class="space-y-4">
-            <div>
-                <label class="block text-xs text-gray-400 font-mono uppercase mb-1.5">CSV File</label>
-                <input type="file" name="csv_file" accept=".csv"
-                    class="w-full bg-gig-dark border border-gig-cyan/30 rounded px-3 py-2 text-sm
-                           focus:border-gig-cyan focus:outline-none file:mr-3 file:py-1 file:px-3
-                           file:rounded file:border-0 file:bg-gig-cyan/20 file:text-gig-cyan
-                           file:text-xs file:font-mono file:uppercase file:cursor-pointer">
-                <p class="text-xs text-gray-500 mt-2 font-mono">Format: artists,venue,date</p>
-                <p class="text-xs text-gray-600 mt-1 font-mono">
-                    Example: <span class="text-gray-400">"Militarie Gun, ZULU",The Earl,2026-04-15</span>
-                </p>
-            </div>
-
-            <button type="submit" id="csv-import-btn"
-                class="bg-gig-pink hover:bg-gig-pink-dim text-gig-dark font-bold uppercase tracking-wider
-                       rounded px-6 py-2 transition-all text-sm inline-flex items-center gap-2">
-                <span id="csv-import-btn-text">Import from CSV</span>
-                <div id="csv-import-spinner" class="hidden h-4 w-4 border-2 border-gig-dark border-t-transparent rounded-full animate-spin"></div>
-            </button>
-        </form>
-    {% endcall %}
-
-    <!-- Import from URLs (experimental, collapsible) -->
-    <details class="bg-gig-card rounded border border-gig-cyan/20 group">
-        <summary class="p-6 cursor-pointer list-none flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <h2 class="font-pixel text-sm text-gig-pink">IMPORT_FROM_URLS</h2>
-                <span class="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded font-mono">Still learning the steps</span>
-            </div>
-            <span class="text-gig-cyan text-xs font-mono group-open:hidden">[+]</span>
-            <span class="text-gig-cyan text-xs font-mono hidden group-open:inline">[-]</span>
-        </summary>
-        <div class="px-6 pb-6">
-            <p class="text-xs text-gray-500 mb-4">
-                Experimental: paste ticket URLs and let AI extract show info.
-                May fail on sites with bot protection.
-            </p>
-            <form method="POST" action="/import-shows" class="space-y-4" id="import-form">
-                {{ textarea("urls", "Ticket URLs (one per line)", placeholder="https://www.eventbrite.com/e/...") }}
-
-                <button type="submit" id="import-btn"
-                    class="bg-gig-pink hover:bg-gig-pink-dim text-gig-dark font-bold uppercase tracking-wider
-                           rounded px-6 py-2 transition-all text-sm inline-flex items-center gap-2">
-                    <span id="import-btn-text">Import from URLs</span>
-                    <div id="import-spinner" class="hidden h-4 w-4 border-2 border-gig-dark border-t-transparent rounded-full animate-spin"></div>
-                </button>
-            </form>
-        </div>
-    </details>
-
-    <!-- Add Show Manually (collapsible) -->
-    <details class="bg-gig-card rounded border border-gig-cyan/20 group">
-        <summary class="p-6 cursor-pointer list-none flex justify-between items-center">
-            <h2 class="font-pixel text-sm text-gig-pink">ADD_MANUAL</h2>
-            <span class="text-gig-cyan text-xs font-mono group-open:hidden">[+]</span>
-            <span class="text-gig-cyan text-xs font-mono hidden group-open:inline">[-]</span>
-        </summary>
-        <div class="px-6 pb-6">
-            <form method="POST" action="/add-show" class="space-y-4">
-                {{ input("artists", "Artists (comma-separated)", placeholder="Nuovo Testamento, Dark Chisme") }}
-
-                <div class="grid grid-cols-2 gap-4">
-                    {{ input("venue", "Venue", placeholder="The Earl") }}
-                    {{ input("date", "Date", type="date") }}
-                </div>
-
-                {{ input("ticket_url", "Ticket URL (optional)", type="url", placeholder="https://...") }}
-                {{ button("Add Show") }}
-            </form>
-        </div>
-    </details>
-    {% else %}
-    <!-- Not logged in message -->
-    <div class="bg-gig-card rounded border border-gig-cyan/20 p-6 text-center">
-        <p class="text-gray-400 mb-4">Log in with Spotify to listen along</p>
-        <a href="/login" class="inline-block bg-gig-pink hover:bg-gig-pink-dim text-gig-dark font-bold uppercase tracking-wider rounded px-6 py-2 transition-all text-sm">
-            Login with Spotify
-        </a>
-    </div>
-    {% endif %}
-
-    <!-- All Shows link -->
-    <a href="{{ url_for('all_shows') }}"
-       class="block bg-gig-card rounded p-4 border border-gig-pink/20 hover:border-gig-pink/40 transition-all group">
-        <div class="flex justify-between items-center">
-            <h2 class="font-pixel text-sm text-gig-pink">ALL_SHOWS</h2>
-            <span class="text-gig-pink text-sm font-mono opacity-0 group-hover:opacity-100 transition">
-                Browse & build lineups →
-            </span>
-        </div>
-    </a>
-
-    <!-- Showlists (Lineups) -->
+    <!-- Playlists Section (Prominent) -->
     <section>
         <div class="flex items-center justify-between mb-4">
-            <h2 class="font-pixel text-sm text-gig-cyan">YOUR_{{ showlist_display_name | upper }}S</h2>
+            <h2 class="font-pixel text-lg text-gig-cyan">PLAYLISTS</h2>
             {% if current_user_id %}
             <form method="POST" action="{{ url_for('create_showlist') }}" class="flex items-center gap-2">
-                <input type="text" name="name" placeholder="New lineup name"
+                <input type="text" name="name" placeholder="New playlist name"
                     class="bg-gig-dark border border-gig-cyan/30 rounded px-3 py-1.5 text-sm
                            focus:border-gig-cyan focus:outline-none placeholder-gray-500 w-40">
                 <button type="submit"
@@ -117,62 +21,96 @@
             </form>
             {% endif %}
         </div>
+
         {% if showlists %}
         <div class="space-y-3">
             {% for showlist in showlists %}
             <a href="{{ url_for('showlist_view', name=showlist.name) }}"
-               class="block bg-gig-card rounded p-4 border border-gig-cyan/20
-                      hover:border-gig-cyan/40 transition-all group">
+               class="block bg-gig-card rounded p-5 border border-gig-cyan/20
+                      hover:border-gig-cyan/40 hover:glow-cyan transition-all group">
                 <div class="flex justify-between items-center">
-                    <h3 class="font-bold text-gig-pink group-hover:text-gig-cyan transition">
-                        {{ showlist.name }}
-                    </h3>
-                    <span class="text-gig-cyan text-sm font-mono opacity-0 group-hover:opacity-100 transition">
-                        Listen →
-                    </span>
+                    <div>
+                        <h3 class="font-bold text-xl text-gig-pink group-hover:text-gig-cyan transition">
+                            {{ showlist.name }}
+                        </h3>
+                        <p class="text-sm text-gray-400 mt-1 font-mono">
+                            {{ showlist.show_count }} show{{ 's' if showlist.show_count != 1 else '' }}
+                            <span class="text-gig-cyan/40">&bull;</span>
+                            {{ showlist.track_count }} track{{ 's' if showlist.track_count != 1 else '' }}
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        {% if showlist.spotify_playlist_id %}
+                        <a href="https://open.spotify.com/playlist/{{ showlist.spotify_playlist_id }}"
+                           target="_blank"
+                           onclick="event.stopPropagation()"
+                           class="text-xs bg-green-500/20 text-green-400 px-3 py-1.5 rounded font-mono
+                                  hover:bg-green-500/30 transition flex items-center gap-1.5"
+                           title="Open in Spotify">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                            </svg>
+                            Open
+                        </a>
+                        {% endif %}
+                        <span class="text-gig-pink text-sm font-mono opacity-0 group-hover:opacity-100 transition">
+                            Listen &rarr;
+                        </span>
+                    </div>
                 </div>
             </a>
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-gray-500 text-sm">No {{ showlist_display_name | lower }}s yet. Create one above!</p>
+        <div class="bg-gig-card rounded border border-gig-cyan/20 p-8 text-center">
+            <p class="text-gray-400 mb-2">No playlists yet</p>
+            <p class="text-sm text-gray-500">
+                {% if current_user_id %}
+                <a href="{{ url_for('all_shows') }}" class="text-gig-cyan hover:text-gig-pink transition">Browse shows</a> to create your first playlist
+                {% else %}
+                <a href="/login" class="text-gig-cyan hover:text-gig-pink transition">Log in</a> to get started
+                {% endif %}
+            </p>
+        </div>
         {% endif %}
     </section>
 
-    <!-- Import Progress (hidden until importing) -->
-    <section id="import-progress" class="hidden">
-        <div class="flex items-center gap-3 mb-4">
-            <h2 class="font-pixel text-sm text-gig-pink">IMPORTING</h2>
-            <span id="progress-count" class="text-xs text-gray-400 font-mono"></span>
-            <div id="progress-spinner" class="h-4 w-4 border-2 border-gig-pink border-t-transparent rounded-full animate-spin"></div>
-        </div>
-        <div id="import-results" class="space-y-3"></div>
-    </section>
+    <!-- Divider -->
+    <div class="border-t border-gig-pink/10"></div>
+
+    <!-- Action Links -->
+    <div class="grid grid-cols-2 gap-4">
+        <!-- Browse Shows -->
+        <a href="{{ url_for('all_shows') }}"
+           class="bg-gig-card rounded p-5 border border-gig-pink/20 hover:border-gig-pink/40 transition-all group text-center">
+            <div class="font-pixel text-sm text-gig-pink mb-2">BROWSE_SHOWS</div>
+            <p class="text-xs text-gray-500 group-hover:text-gray-400 transition">
+                View all shows &bull; Build playlists
+            </p>
+        </a>
+
+        <!-- Import Shows -->
+        <a href="{{ url_for('import_page') }}"
+           class="bg-gig-card rounded p-5 border border-gig-cyan/20 hover:border-gig-cyan/40 transition-all group text-center">
+            <div class="font-pixel text-sm text-gig-cyan mb-2">IMPORT_SHOWS</div>
+            <p class="text-xs text-gray-500 group-hover:text-gray-400 transition">
+                CSV &bull; URLs &bull; Manual
+            </p>
+        </a>
+    </div>
+
+    {% if not current_user_id %}
+    <!-- Login prompt for guests -->
+    <div class="bg-gig-card rounded border border-gig-pink/20 p-6 text-center">
+        <p class="text-gray-400 mb-4">Log in with Spotify to listen along</p>
+        <a href="/login" class="inline-block bg-gig-pink hover:bg-gig-pink-dim text-gig-dark font-bold uppercase tracking-wider rounded px-6 py-2 transition-all text-sm">
+            Login with Spotify
+        </a>
+    </div>
+    {% endif %}
 
     <!-- Spacer for bottom player bar -->
     <div class="h-20"></div>
 </div>
 
-{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/import.js') }}"></script>
-<script>
-// Initialize URL import SSE handler
-GiglzImport.init();
-
-// CSV import form - show spinner on submit
-const csvForm = document.querySelector('form[action="/import-shows/csv"]');
-if (csvForm) {
-    csvForm.addEventListener('submit', function() {
-        const btn = document.getElementById('csv-import-btn');
-        const btnText = document.getElementById('csv-import-btn-text');
-        const spinner = document.getElementById('csv-import-spinner');
-        btn.disabled = true;
-        btn.classList.add('opacity-75', 'cursor-not-allowed');
-        btnText.textContent = 'Importing...';
-        spinner.classList.remove('hidden');
-    });
-}
-</script>
 {% endblock %}

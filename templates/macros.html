@@ -51,9 +51,10 @@
 {% endmacro %}
 
 {% macro show_card(show) %}
-<div class="bg-gig-card rounded p-4 border border-gig-cyan/20
-            hover:border-gig-cyan/40 transition-all"
-     data-show-id="{{ show.id }}">
+<div class="bg-gig-card rounded p-4 border transition-all
+            {% if show.loved_tracks %}border-gig-pink/40 glow-pink{% else %}border-gig-cyan/20 hover:border-gig-cyan/40{% endif %}"
+     data-show-id="{{ show.id }}"
+     data-loved-count="{{ show.loved_tracks | length if show.loved_tracks else 0 }}">
     <div class="flex justify-between items-start">
         <div>
             <h3 class="font-bold text-gig-pink">

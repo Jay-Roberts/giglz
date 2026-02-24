@@ -6,6 +6,7 @@ doesn't manage auth. Token management is handled by TokenManager.
 
 import logging
 import time
+from typing import Any
 
 import spotipy
 from rapidfuzz import fuzz
@@ -324,6 +325,38 @@ class SpotifyAPI:
         """
         logger.info("Clearing all tracks from playlist %s", playlist_id)
         self._sp.playlist_replace_items(playlist_id, [])
+        return True
+
+    def transfer_playback_to_playlist(
+        self, playlist_id: str, track_uri: str | None = None
+    ) -> bool:
+        """Start playing a playlist, optionally from a specific track.
+
+        Args:
+            playlist_id: Spotify playlist ID to play.
+            track_uri: Optional track URI to start from. If the track is in
+                       the playlist, playback starts there. If not provided
+                       or not found, starts from the beginning.
+
+        Returns:
+            True if successful.
+
+        Note:
+            Requires Spotify Premium. Will fail on free accounts.
+        """
+        context_uri = f"spotify:playlist:{playlist_id}"
+        payload: dict[str, Any] = {"context_uri": context_uri}
+
+        if track_uri:
+            payload["offset"] = {"uri": track_uri}
+
+        logger.info(
+            "Transferring playback to playlist %s (offset: %s)",
+            playlist_id,
+            track_uri or "start",
+        )
+
+        self._sp.start_playback(**payload)
         return True
 
     def follow_playlist(self, playlist_id: str) -> bool:

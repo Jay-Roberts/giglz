@@ -176,6 +176,12 @@
                     <!-- Emoticon feedback -->
                     <div id="love-feedback" class="text-5xl mt-2 h-14 font-mono text-gig-pink"></div>
                     <div id="not-scouted-msg" class="hidden text-sm text-gray-500 mt-2">Not from a scouted show</div>
+                    <!-- Scout Gig button - appears after loving a scouted track -->
+                    <button id="btn-scout-gig" class="hidden mt-4 px-6 py-2 bg-gig-cyan/20 border border-gig-cyan/50
+                                                       text-gig-cyan rounded-full text-sm font-bold uppercase tracking-wider
+                                                       hover:bg-gig-cyan/30 hover:border-gig-cyan transition-all">
+                        {{ scout_gig_cta }} &rarr;
+                    </button>
                 </div>
             </div>
         </div>
@@ -198,6 +204,7 @@
                 <div class="min-w-0">
                     <div id="player-track-name" class="text-sm text-gray-100 truncate">Connect Spotify to {{ app_name }} Player</div>
                     <div id="player-artist-name" class="text-xs text-gray-400 truncate"></div>
+                    <div id="player-show-context" class="text-xs text-gig-cyan/60 truncate hidden"></div>
                 </div>
             </div>
 
