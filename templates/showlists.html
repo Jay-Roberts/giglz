@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}All {{ showlist_display_name }}s - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h2 class="font-pixel text-xl text-gig-pink">ALL_{{ showlist_display_name | upper }}S</h2>
+
+    {% if showlists %}
+    <div class="space-y-3">
+        {% for showlist in showlists %}
+        <a href="{{ url_for('showlist_view', name=showlist.name) }}"
+           class="block bg-gig-card rounded p-4 border border-gig-cyan/20
+                  hover:border-gig-cyan/40 transition-all group">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-gig-pink group-hover:text-gig-cyan transition">
+                    {{ showlist.name }}
+                </h3>
+                <span class="text-gig-cyan text-sm font-mono opacity-0 group-hover:opacity-100 transition">
+                    Listen →
+                </span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-gig-card rounded border border-gig-cyan/20 p-6 text-center">
+        <p class="text-gray-400">No {{ showlist_display_name | lower }}s yet. Import some shows to get started!</p>
+    </div>
+    {% endif %}
+
+    <!-- Spacer for bottom player bar -->
+    <div class="h-20"></div>
+</div>
+{% endblock %}

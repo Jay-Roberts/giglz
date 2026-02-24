@@ -337,6 +337,83 @@ def all_showlists():
     return flask.render_template("showlists.html", showlists=showlists)
 
 
+@app.route("/lineup/create", methods=["POST"])
+def create_showlist():
+    """Create a new showlist."""
+    user_id = flask.session.get("user_id")
+    if not user_id:
+        flask.flash("Please log in to create a lineup.")
+        return flask.redirect(flask.url_for("home"))
+
+    name = flask.request.form.get("name", "").strip()
+    if not name:
+        flask.flash("Please enter a name for your lineup.")
+        return flask.redirect(flask.url_for("home"))
+
+    showlist = get_db().create_showlist(name, user_id)
+    flask.flash(f"Created lineup: {showlist.name}")
+    return flask.redirect(flask.url_for("showlist_view", name=showlist.name))
+
+
+@app.route("/shows")
+def all_shows():
+    """View all imported shows with selection UI."""
+    shows = get_db().get_all_shows()
+    showlists = get_db().get_all_showlists()
+    return flask.render_template("shows.html", shows=shows, showlists=showlists)
+
+
+@app.route("/lineup/<name>/add-shows", methods=["POST"])
+def add_shows_to_lineup(name: str):
+    """Add selected shows to a showlist and sync to Spotify."""
+    user_id = flask.session.get("user_id")
+    if not user_id:
+        flask.flash("Please log in to add shows.")
+        return flask.redirect(flask.url_for("home"))
+
+    database = get_db()
+    showlist = database.get_showlist_by_name(name)
+    if not showlist:
+        flask.abort(404)
+
+    show_ids = flask.request.form.getlist("show_ids")
+    if not show_ids:
+        flask.flash("No shows selected.")
+        return flask.redirect(flask.url_for("all_shows"))
+
+    # Get Spotify API (uses host account for playlist operations)
+    try:
+        spotify = get_host_spotify_api()
+    except ValueError as e:
+        flask.flash(f"Spotify error: {e}")
+        return flask.redirect(flask.url_for("all_shows"))
+
+    # Ensure Spotify playlist exists for this showlist
+    spotify_playlist_id = showlist.spotify_playlist_id
+    if not spotify_playlist_id:
+        spotify_playlist = spotify.get_or_create_playlist(showlist.name)
+        if spotify_playlist is None:
+            flask.flash(f"Failed to create Spotify playlist for {showlist.name}")
+            return flask.redirect(flask.url_for("all_shows"))
+        database.update_showlist_spotify_id(showlist.id, spotify_playlist.id)
+        spotify_playlist_id = spotify_playlist.id
+
+    # Collect tracks from selected shows and add to showlist
+    all_track_uris: list[str] = []
+    for show_id in show_ids:
+        show = database.get_show(show_id)
+        if show:
+            database.add_show_to_showlist(showlist.id, show_id, user_id)
+            all_track_uris.extend(show.track_uris)
+
+    # Add tracks to Spotify playlist
+    if all_track_uris:
+        spotify.add_tracks_to_playlist(spotify_playlist_id, all_track_uris)
+
+    flask.flash(f"Added {len(show_ids)} show(s) to {showlist.name}")
+    return flask.redirect(flask.url_for("showlist_view", name=name))
+
+
 @app.route("/lineup/<name>")
 def showlist_view(name: str):
     """View shows for a specific showlist (with player)."""

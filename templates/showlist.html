@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "macros.html" import show_card %}
+
+{% block title %}{{ showlist.name }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header with back link -->
+    <div class="flex items-center gap-4">
+        <a href="{{ url_for('home') }}" class="text-gray-400 hover:text-gig-cyan transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </a>
+        <h2 class="font-pixel text-xl text-gig-pink">{{ showlist.name | upper }}</h2>
+    </div>
+
+    {% if shows %}
+    <div class="space-y-3">
+        {% for show in shows %}
+            {{ show_card(show) }}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-gig-card rounded border border-gig-cyan/20 p-6 text-center">
+        <p class="text-gray-400">No shows in this {{ showlist_display_name | lower }} yet.</p>
+    </div>
+    {% endif %}
+
+    <!-- Spacer for bottom player bar -->
+    <div class="h-20"></div>
+</div>
+{% endblock %}
