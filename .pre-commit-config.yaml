@@ -26,3 +26,10 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+
+      - id: no-migration-renames
+        name: no-migration-renames
+        entry: ./scripts/check-migrations.sh
+        language: script
+        pass_filenames: false
+        always_run: true
