@@ -29,7 +29,7 @@ repos:
 
       - id: no-migration-renames
         name: no-migration-renames
-        entry: ./scripts/check-migrations.sh
-        language: script
+        entry: bash scripts/check-migrations.sh
+        language: system
         pass_filenames: false
         always_run: true

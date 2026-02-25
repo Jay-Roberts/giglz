@@ -101,7 +101,7 @@ def format_date_filter(date_str: str) -> str:
     """Convert YYYY-MM-DD to DD Mon. YYYY (e.g., '24 Feb. 2026')."""
     try:
         dt = datetime.strptime(date_str, "%Y-%m-%d")
-        return dt.strftime("%-d %b. %Y")
+        return dt.strftime("%d %b. %Y").lstrip("0")
     except (ValueError, TypeError):
         return date_str
 

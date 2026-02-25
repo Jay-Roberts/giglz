@@ -197,7 +197,7 @@ class Database:
         elif sort == "combined" and user_id:
             shows.sort(
                 key=lambda s: (
-                    0 if s.loved_tracks else 1,
+                    0 if s.loved_tracks and len(s.loved_tracks) > 0 else 1,
                     -len(s.loved_tracks or []),
                     s.date or "",
                 )
