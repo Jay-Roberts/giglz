@@ -46,6 +46,8 @@ Built incrementally with Flask, Spotipy, and vanilla JavaScript.
 - **Rollback one:** `make db-downgrade` / `make db-downgrade-dev`
 - **Reset dev DB:** `make db-reset-dev` (drops and recreates)
 
+**CRITICAL: Never rename or delete migration files once deployed.** Alembic tracks the current revision ID in the database. If you rename `abc123_foo.py` to `def456_bar.py`, deployed databases will fail with "Can't locate revision 'abc123'". Only add new migrations on top of existing ones.
+
 ## Tech Stack
 
 - Python 3.12, Flask, Spotipy (Spotify API wrapper), python-dotenv, Pydantic

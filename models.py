@@ -141,3 +141,32 @@ class TrackStatusResponse(BaseModel):
     uri: str
     loved: bool
     shows: list[str]
+
+
+# --- Scout API Models (Browser Extension) ---
+
+
+class ScoutRequest(BaseModel):
+    """Request from browser extension to scout a show."""
+
+    url: str
+    title: str
+    text: str  # Page content (document.body.innerText)
+
+
+class ScoutShowInfo(BaseModel):
+    """Show info returned after successful scout."""
+
+    id: str
+    venue: str
+    date: str
+    artists: list[str]
+
+
+class ScoutResponse(BaseModel):
+    """Response from /api/scout endpoint."""
+
+    success: bool
+    show: ScoutShowInfo | None = None
+    track_count: int = 0
+    error: str | None = None

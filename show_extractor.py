@@ -23,6 +23,9 @@ BOT_PROTECTION_MARKERS = (
 
 OPENROUTER_MODEL = "anthropic/claude-haiku-4.5"
 
+# Max characters to send to LLM for extraction (controls token cost)
+MAX_EXTRACTION_TEXT_LENGTH = 8000
+
 EXTRACTION_PROMPT = """\
 Extract concert/show info from this ticket page.
 Return ONLY a raw JSON object — no markdown, no code fences, no explanation.
@@ -113,17 +116,39 @@ class ShowExtractor:
         or None if extraction fails.
         """
         page_md = self._fetch_page_markdown(url)
-        data = self._extract_show_info_w_llm(page_md)
+        return self.extract_from_text(page_md, url)
+
+    def extract_from_text(
+        self, text: str, url: str | None = None
+    ) -> ShowSubmission | None:
+        """Extract show data from raw page text.
+
+        Used by browser extension which provides already-fetched page content.
+        Bypasses Jina Reader — text comes directly from the DOM.
+
+        Args:
+            text: Page text content (e.g., document.body.innerText)
+            url: Optional source URL to store as ticket_url
+
+        Returns:
+            ShowSubmission with extracted data, or None if extraction fails.
+        """
+        # Truncate to avoid excessive token usage
+        truncated = text[:MAX_EXTRACTION_TEXT_LENGTH]
+
+        data = self._extract_show_info_w_llm(truncated)
 
         if data is None:
-            logger.warning("LLM returned empty response for %s", url)
+            logger.warning("LLM returned empty response for text extraction")
             return None
 
         missing = [
             field for field in ("artists", "venue", "date") if not data.get(field)
         ]
         if missing:
-            msg = f"Could not extract {', '.join(missing)} from {url}"
+            msg = f"Could not extract {', '.join(missing)}"
+            if url:
+                msg += f" from {url}"
             logger.warning(msg)
             raise ValueError(msg)
 
