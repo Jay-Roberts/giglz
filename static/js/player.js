@@ -71,6 +71,7 @@ window.GiglzPlayer = (function() {
             loveFeedback: document.getElementById('love-feedback'),
             notScoutedMsg: document.getElementById('not-scouted-msg'),
             btnScoutGig: document.getElementById('btn-scout-gig'),
+            expandedShowContext: document.getElementById('expanded-show-context'),
         };
     }
 
@@ -204,6 +205,11 @@ window.GiglzPlayer = (function() {
         }
         if (el.expandedArtistName && el.artistName) {
             el.expandedArtistName.textContent = el.artistName.textContent;
+        }
+        // Sync show context (venue + date)
+        if (el.expandedShowContext && el.showContext) {
+            el.expandedShowContext.textContent = el.showContext.textContent;
+            el.expandedShowContext.classList.toggle('hidden', el.showContext.classList.contains('hidden'));
         }
         el.expandedIconPlay?.classList.toggle('hidden', isPlaying);
         el.expandedIconPause?.classList.toggle('hidden', !isPlaying);
@@ -640,6 +646,10 @@ window.GiglzPlayer = (function() {
 
         getCurrentTrack: function() {
             return currentTrack;
+        },
+
+        isSDKMode: function() {
+            return !usePolling;
         },
 
         destroy: function() {

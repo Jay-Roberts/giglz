@@ -61,7 +61,7 @@
                 {{ show.artists | map(attribute='name') | join(", ") }}
             </h3>
             <p class="text-sm text-gray-400 mt-1 font-mono">
-                {{ show.venue }} <span class="text-gig-cyan/40">//</span> {{ show.date }}
+                {{ show.venue }} <span class="text-gig-cyan/40">//</span> {{ show.date | format_date }}
             </p>
         </div>
         <div class="flex items-center gap-2">

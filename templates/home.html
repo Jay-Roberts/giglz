@@ -9,25 +9,20 @@
         <div class="flex items-center justify-between mb-4">
             <h2 class="font-pixel text-lg text-gig-cyan">PLAYLISTS</h2>
             {% if current_user_id %}
-            <form method="POST" action="{{ url_for('create_showlist') }}" class="flex items-center gap-2">
-                <input type="text" name="name" placeholder="New playlist name"
-                    class="bg-gig-dark border border-gig-cyan/30 rounded px-3 py-1.5 text-sm
-                           focus:border-gig-cyan focus:outline-none placeholder-gray-500 w-40">
-                <button type="submit"
-                    class="bg-gig-cyan/20 hover:bg-gig-cyan/30 text-gig-cyan font-bold uppercase tracking-wider
-                           rounded px-3 py-1.5 transition-all text-xs">
-                    + Create
-                </button>
-            </form>
+            <a href="{{ url_for('all_shows') }}"
+               class="bg-gig-cyan/20 hover:bg-gig-cyan/30 text-gig-cyan font-bold uppercase tracking-wider
+                      rounded px-3 py-1.5 transition-all text-xs">
+                + New Playlist
+            </a>
             {% endif %}
         </div>
 
         {% if showlists %}
         <div class="space-y-3">
             {% for showlist in showlists %}
-            <a href="{{ url_for('showlist_view', name=showlist.name) }}"
-               class="block bg-gig-card rounded p-5 border border-gig-cyan/20
-                      hover:border-gig-cyan/40 hover:glow-cyan transition-all group">
+            <div class="bg-gig-card rounded p-5 border border-gig-cyan/20
+                        hover:border-gig-cyan/40 hover:glow-cyan transition-all group cursor-pointer"
+                 onclick="window.location='{{ url_for('showlist_view', name=showlist.name) }}'">
                 <div class="flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-xl text-gig-pink group-hover:text-gig-cyan transition">
@@ -58,7 +53,7 @@
                         </span>
                     </div>
                 </div>
-            </a>
+            </div>
             {% endfor %}
         </div>
         {% else %}

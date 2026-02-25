@@ -28,7 +28,7 @@ from config import (
     setup_logging,
 )
 import db_models  # noqa: F401 - registers models with SQLAlchemy
-from db import Database
+from db import DEFAULT_SHOWLIST_NAME, Database
 from extensions import db, migrate
 from models import (
     ImportedUrl,
@@ -80,6 +80,7 @@ TEMPLATE_GLOBALS: dict[str, Any] = {
     "share_on_network": SHARE_ON_NETWORK,
     "showlist_display_name": SHOWLIST_DISPLAY_NAME,
     "scout_gig_cta": SCOUT_GIG_CTA,
+    "default_showlist_name": DEFAULT_SHOWLIST_NAME,
 }
 
 
@@ -93,6 +94,16 @@ def inject_globals():
         "current_user_name": flask.session.get("user_name"),
         "is_host": flask.session.get("user_id") == HOST_USER_ID,
     }
+
+
+@app.template_filter("format_date")
+def format_date_filter(date_str: str) -> str:
+    """Convert YYYY-MM-DD to DD Mon. YYYY (e.g., '24 Feb. 2026')."""
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        return dt.strftime("%-d %b. %Y")
+    except (ValueError, TypeError):
+        return date_str
 
 
 extractor = ShowExtractor()

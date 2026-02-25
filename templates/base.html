@@ -78,7 +78,7 @@
     <div class="min-h-full">
         <nav class="border-b border-gig-pink/20">
             <div class="max-w-4xl mx-auto px-4 py-6 flex items-center justify-between">
-                <h1 class="font-pixel text-3xl text-gig-pink text-glow-pink">{{ app_display_name }}</h1>
+                <a href="{{ url_for('home') }}" class="font-pixel text-3xl text-gig-pink text-glow-pink hover:text-gig-cyan transition">{{ app_display_name }}</a>
                 <div class="flex items-center gap-4">
                     {% if current_user_id %}
                         <span class="text-sm text-gray-400">
@@ -142,6 +142,7 @@
                     <img id="expanded-album-art" src="" alt="" class="w-48 h-48 rounded-lg bg-gig-card shadow-2xl">
                     <div id="expanded-track-name" class="text-lg text-gray-100 mt-4 text-center font-bold truncate max-w-[200px]"></div>
                     <div id="expanded-artist-name" class="text-sm text-gray-400 mt-1 text-center truncate max-w-[200px]"></div>
+                    <div id="expanded-show-context" class="text-xs text-gig-cyan/60 mt-1 text-center truncate max-w-[200px] hidden"></div>
 
                     <!-- Controls -->
                     <div class="flex items-center gap-3 mt-6">
@@ -261,9 +262,10 @@
         GiglzPlayer.init();
     }
 
-    // Page refresh warning when playing or importing
+    // Page refresh warning - only when SDK player is active (not mobile polling)
     window.addEventListener('beforeunload', function(e) {
-        const playerActive = window.GiglzPlayer?.isPlaying?.() ?? false;
+        const isSDKMode = window.GiglzPlayer?.isSDKMode?.() ?? false;
+        const playerActive = isSDKMode && (window.GiglzPlayer?.isPlaying?.() ?? false);
         const importActive = window.GiglzImport?.isImporting?.() ?? false;
 
         if (playerActive || importActive) {
