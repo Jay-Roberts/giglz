@@ -169,6 +169,9 @@ class Database:
     ) -> list[Show]:
         """Get all shows with sorting.
 
+        TODO: N+1 query issue - _row_to_show() makes 2 queries per show (artists, tracks).
+        Use eager loading with joins when this becomes a performance bottleneck.
+
         Args:
             sort: Sort order - "date" (ascending), "hearts" (descending),
                   or "combined" (upcoming shows with hearts first).
@@ -268,6 +271,9 @@ class Database:
         user_id: str | None = None,
     ) -> list[Show]:
         """Get all shows in a showlist with sorting.
+
+        TODO: N+1 query issue - loops over show_ids calling get_show() individually.
+        Use eager loading with joins when this becomes a performance bottleneck.
 
         Args:
             showlist_id: The showlist to query.
