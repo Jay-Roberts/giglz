@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>GIGLZ</h1>
+
+    <div id="status-idle" class="status">
+      <p class="hint">Scout this page to add the show to your playlist</p>
+      <button id="scout-btn" class="btn-primary">Scout</button>
+    </div>
+
+    <div id="status-loading" class="status hidden">
+      <div class="spinner"></div>
+      <p>Scouting...</p>
+    </div>
+
+    <div id="status-success" class="status hidden">
+      <div class="success-icon">✓</div>
+      <p class="show-info">
+        <span id="artists"></span><br>
+        <span id="venue-date" class="venue-date"></span>
+      </p>
+      <p class="track-count"><span id="track-count"></span> tracks added</p>
+      <a id="view-link" href="#" target="_blank" class="btn-secondary">View in Giglz</a>
+    </div>
+
+    <div id="status-error" class="status hidden">
+      <div class="error-icon">✗</div>
+      <p id="error-message" class="error-message"></p>
+      <button id="retry-btn" class="btn-secondary">Try Again</button>
+    </div>
+
+    <div class="settings">
+      <details>
+        <summary>Settings</summary>
+        <label>
+          API URL
+          <input type="text" id="api-url" placeholder="http://localhost:5001">
+        </label>
+        <button id="save-settings" class="btn-small">Save</button>
+      </details>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

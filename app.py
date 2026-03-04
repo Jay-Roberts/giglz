@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import flask
+from flask_cors import CORS
 import spotipy
 
 from config import (
@@ -34,6 +35,9 @@ from models import (
     ImportedUrl,
     ImportStatus,
     LoveTrackResponse,
+    ScoutRequest,
+    ScoutResponse,
+    ScoutShowInfo,
     Show,
     ShowLovedCount,
     ShowSubmission,
@@ -58,6 +62,9 @@ def create_app():
 
     db.init_app(app)
     migrate.init_app(app, db)
+
+    # CORS for browser extension - allow credentials (session cookies)
+    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
     # Database facade - single entry point for persistence
     app.extensions["database"] = Database()
@@ -1136,6 +1143,80 @@ def api_now_playing():
             response["show_date"] = show.date
 
     return flask.jsonify(response)
+
+
+# --- Browser Extension API ---
+
+
+@app.route("/api/scout", methods=["POST"])
+def api_scout():
+    """Scout a show from browser extension.
+
+    Receives page content from extension, extracts show info via LLM,
+    runs Spotify pipeline, and adds show to default playlist.
+
+    Request:
+        {"url": "...", "title": "...", "text": "..."}
+
+    Response:
+        {"success": true, "show": {...}, "track_count": 30}
+        {"success": false, "error": "..."}
+    """
+    user_id = flask.session.get("user_id")
+    if not user_id:
+        response = ScoutResponse(success=False, error="Not logged in")
+        return flask.jsonify(response.model_dump()), 401
+
+    data = flask.request.get_json()
+    if not data:
+        response = ScoutResponse(success=False, error="JSON body required")
+        return flask.jsonify(response.model_dump()), 400
+
+    try:
+        request = ScoutRequest(**data)
+    except Exception as e:
+        response = ScoutResponse(success=False, error=f"Invalid request: {e}")
+        return flask.jsonify(response.model_dump()), 400
+
+    # Extract show info from page text
+    try:
+        submission = extractor.extract_from_text(request.text, request.url)
+    except ValueError as e:
+        response = ScoutResponse(success=False, error=str(e))
+        return flask.jsonify(response.model_dump()), 400
+
+    if submission is None:
+        response = ScoutResponse(success=False, error="Could not extract show info")
+        return flask.jsonify(response.model_dump()), 400
+
+    # Run Spotify pipeline
+    try:
+        show, not_found = _scout_submission(submission, user_id)
+    except ValueError as e:
+        response = ScoutResponse(success=False, error=str(e))
+        return flask.jsonify(response.model_dump()), 500
+
+    # Build response
+    show_info = ScoutShowInfo(
+        id=show.id,
+        venue=show.venue,
+        date=show.date,
+        artists=[a.name for a in show.artists],
+    )
+    response = ScoutResponse(
+        success=True,
+        show=show_info,
+        track_count=len(show.track_uris),
+    )
+
+    logger.info(
+        "Scouted via extension: %s at %s (%d tracks)",
+        ", ".join(show_info.artists),
+        show_info.venue,
+        response.track_count,
+    )
+
+    return flask.jsonify(response.model_dump())
 
 
 if __name__ == "__main__":
