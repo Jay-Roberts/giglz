@@ -985,15 +985,17 @@ def track_status(track_uri: str):
     show_ids = db.get_shows_with_track(track_uri)
     loved = db.is_track_loved(user_id, track_uri) if user_id else False
 
-    # Get show context from first matching show
+    # Get show context from soonest show (by date ascending)
     show_venue = None
     show_date = None
     if show_ids:
-        #! does this return soonest show? If so lets doc that/
-        show = db.get_show(show_ids[0])
-        if show:
-            show_venue = show.venue
-            show_date = show.date
+        shows = [db.get_show(sid) for sid in show_ids]
+        shows = [s for s in shows if s is not None]
+        if shows:
+            shows.sort(key=lambda s: s.date or "")
+            soonest = shows[0]
+            show_venue = soonest.venue
+            show_date = soonest.date
 
     response = TrackStatusResponse(
         uri=track_uri,

@@ -292,23 +292,13 @@ window.GiglzPlayer = (function() {
             const result = await GiglzAPI.scoutGig(currentTrack.uri);
 
             if (result.success) {
-                // Show success feedback
+                // Show persistent context — you're now scouting this show
                 if (el.btnScoutGig) {
-                    const artists = result.show.artists.slice(0, 2).join(', ');
-                    el.btnScoutGig.textContent = `Now scouting ${artists}`;
+                    el.btnScoutGig.textContent = `Now scouting: ${result.show.venue} · ${result.show.date}`;
                     el.btnScoutGig.classList.remove('border-gig-cyan/50', 'text-gig-cyan', 'bg-gig-cyan/20');
                     el.btnScoutGig.classList.add('border-gig-pink/50', 'text-gig-pink', 'bg-gig-pink/20');
+                    el.btnScoutGig.disabled = true;
                 }
-
-                // Reset after delay
-                setTimeout(() => {
-                    if (el.btnScoutGig) {
-                        el.btnScoutGig.innerHTML = el.btnScoutGig.dataset.originalText || 'Scout this gig &rarr;';
-                        el.btnScoutGig.classList.add('border-gig-cyan/50', 'text-gig-cyan', 'bg-gig-cyan/20');
-                        el.btnScoutGig.classList.remove('border-gig-pink/50', 'text-gig-pink', 'bg-gig-pink/20');
-                        el.btnScoutGig.disabled = false;
-                    }
-                }, 3000);
             }
         } catch (e) {
             console.error('Scout gig failed:', e);
