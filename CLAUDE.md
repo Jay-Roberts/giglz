@@ -24,7 +24,7 @@ Where in each feature directory,`plans` will have plans to implement changes and
 
 Giglz is a Spotify-integrated Flask web app for scouting concert shows. Users add shows (artist, venue, date), the app finds artists' top tracks on Spotify and adds them to a "Scouting" playlist for pre-listening, then displays show info while music plays.
 
-**Status: Phase 2 complete, preparing for deployment.** The app is functional — Spotify integration works, shows persist to SQLite, and the frontend has a dreampop aesthetic with Tailwind. URL import with LLM extraction is implemented, including an SSE streaming endpoint for real-time UI updates. Per-user loved tracks with multi-user auth is implemented.
+**Status: Deployed on Railway.** Core features complete: Spotify integration, SQLite persistence, multi-user auth, loved tracks, browser extension for scouting. Frontend has a dreampop aesthetic with Tailwind.
 
 Built incrementally with Flask, Spotipy, and vanilla JavaScript.
 
@@ -59,12 +59,11 @@ Built incrementally with Flask, Spotipy, and vanilla JavaScript.
 ## Architecture
 
 **app.py** — Flask routes and request handling.
-- `GET /` — Home page with show list and forms
-- `POST /add-show` — Manual show submission
-- `POST /import-shows` — Batch URL import (full page reload)
-- `POST /import-shows/stream` — SSE endpoint for real-time import progress
-- `GET /playlist` — View Scouting playlist (stub)
-- `POST /playlist/clear` — Clear playlist tracks (stub)
+- `GET /` — Home page with playlists front and center
+- `GET /shows` — Browse all shows, create playlists
+- `GET /import` — Import page (CSV, URL, manual)
+- `GET /lineup/<name>` — View a playlist with player
+- `POST /api/scout` — Browser extension endpoint (receives page text, extracts show)
 
 **models.py** — Pydantic data models.
 - `ShowSubmission` — User-provided form data (artists, venue, date, ticket_url)
@@ -76,7 +75,9 @@ Built incrementally with Flask, Spotipy, and vanilla JavaScript.
 - `SpotifyAPI` — Stateless wrapper around spotipy (search, top tracks, playlist management)
 - `TokenManager` — Per-user OAuth token management with file-based caching
 
-**show_extractor.py** — LLM-based show extraction. Fetches ticket URLs via Jina Reader, sends markdown to Claude Haiku via OpenRouter, parses JSON response into `ShowSubmission`.
+**show_extractor.py** — LLM-based show extraction.
+- `extract_show(url)` — Fetches via Jina Reader, extracts with Haiku
+- `extract_from_text(text)` — Extracts from raw text (used by browser extension, bypasses bot protection)
 
 **db.py** — Database facade, single entry point for all persistence.
 - `Database` class with methods for shows, imports, and per-user loved tracks
@@ -87,6 +88,11 @@ Built incrementally with Flask, Spotipy, and vanilla JavaScript.
 **url_utils.py** — URL normalization (strips tracking params, normalizes format).
 
 **config.py** — Central config from env vars (ports, paths, feature flags).
+
+**extension/** — Chrome/Brave browser extension for one-click scouting.
+- Click extension on any ticket page → extracts show via LLM → adds to playlist
+- Bypasses bot protection (extension sends rendered page text, not URL)
+- Session-based auth (uses Giglz login cookie)
 
 **templates/** — Jinja2 templates with Tailwind styling.
 - `base.html` — Layout with dreampop aesthetic (pink/teal, pixel font, scanlines)
@@ -99,7 +105,7 @@ Required in `.env` (loaded by python-dotenv):
 - `SPOTIFY_CLIENT_ID`
 - `SPOTIFY_CLIENT_SECRET`
 - `SPOTIFY_REDIRECT_URI` (default: `http://127.0.0.1:5001/callback`)
-- `HOST_USER_ID` — Spotify user ID of the host (only user who can import shows)
+- `HOST_USER_ID` — Spotify user ID of the host (playlist operations use host's account)
 - `OPENROUTER_API_KEY` — For LLM-based show extraction
 
 Optional:
@@ -118,4 +124,4 @@ Optional:
 
 - **Phase 1 (complete):** Flask with full page reloads, JSON persistence, Spotify playlist creation
 - **Phase 2 (complete):** JavaScript-driven UI, SSE streaming for imports, SQLite persistence
-- **Phase 3 (in progress):** Railway deployment, multi-user support
+- **Phase 3 (complete):** Railway deployment, multi-user support, browser extension

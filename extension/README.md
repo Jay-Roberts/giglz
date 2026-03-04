@@ -28,7 +28,6 @@ Click the extension icon → Settings → Enter your Giglz API URL:
 - Works on Chrome, Brave, Edge (Chromium-based browsers)
 
 ## Icons
-#! Why don't we just do this?
 Replace the placeholder icons in `icons/` with proper PNG files:
 - `icon16.png` - 16x16px
 - `icon48.png` - 48x48px

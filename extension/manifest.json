@@ -9,7 +9,7 @@
     "storage"
   ],
   "host_permissions": [
-    "http://localhost:5001/*", #! What is this? It feels really permissive
+    "http://localhost:5001/*",
     "https://*.railway.app/*"
   ],
   "action": {

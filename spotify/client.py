@@ -308,7 +308,11 @@ class SpotifyAPI:
         Returns:
             True if successful.
         """
-        self._sp.playlist_add_items(playlist_id, track_uris)
+        # Spotify API limit: 100 tracks per request
+        batch_size = 100
+        for i in range(0, len(track_uris), batch_size):
+            batch = track_uris[i : i + batch_size]
+            self._sp.playlist_add_items(playlist_id, batch)
         return True
 
     def clear_playlist(self, playlist_id: str) -> bool:
