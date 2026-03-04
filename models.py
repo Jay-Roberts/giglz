@@ -141,6 +141,8 @@ class TrackStatusResponse(BaseModel):
     uri: str
     loved: bool
     shows: list[str]
+    show_venue: str | None = None
+    show_date: str | None = None
 
 
 # --- Scout API Models (Browser Extension) ---

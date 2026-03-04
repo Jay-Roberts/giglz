@@ -975,17 +975,32 @@ def unlove_track():
 
 @app.route("/api/track/<path:track_uri>/status")
 def track_status(track_uri: str):
-    """Check if a track is loved by the current user."""
+    """Check if a track is loved by the current user.
+
+    Also returns show context (venue/date) if track belongs to a scouted show.
+    """
     user_id = flask.session.get("user_id")
 
     db = get_db()
     show_ids = db.get_shows_with_track(track_uri)
     loved = db.is_track_loved(user_id, track_uri) if user_id else False
 
+    # Get show context from first matching show
+    show_venue = None
+    show_date = None
+    if show_ids:
+        #! does this return soonest show? If so lets doc that/
+        show = db.get_show(show_ids[0])
+        if show:
+            show_venue = show.venue
+            show_date = show.date
+
     response = TrackStatusResponse(
         uri=track_uri,
         loved=loved,
         shows=show_ids,
+        show_venue=show_venue,
+        show_date=show_date,
     )
     return flask.jsonify(response.model_dump())
 

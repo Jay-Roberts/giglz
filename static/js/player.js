@@ -236,20 +236,22 @@ window.GiglzPlayer = (function() {
     // Private: Love/Unlove
     // ---------------------
     /**
-     * Check track status (loved + scouted).
-     * @returns {{ loved: boolean, scouted: boolean }}
+     * Check track status (loved + scouted + show context).
+     * @returns {{ loved: boolean, scouted: boolean, showContext: {venue, date} | null }}
      */
     async function checkTrackStatus(uri) {
-        if (!uri) return { loved: false, scouted: false };
+        if (!uri) return { loved: false, scouted: false, showContext: null };
         try {
             const data = await GiglzAPI.getTrackStatus(uri);
-            return {
-                loved: data.loved,
-                scouted: data.shows && data.shows.length > 0,
-            };
+            const scouted = data.shows && data.shows.length > 0;
+            const showContext = scouted && data.show_venue ? {
+                venue: data.show_venue,
+                date: data.show_date,
+            } : null;
+            return { loved: data.loved, scouted, showContext };
         } catch (e) {
             console.error('Failed to check track status:', e);
-            return { loved: false, scouted: false };
+            return { loved: false, scouted: false, showContext: null };
         }
     }
 
@@ -417,10 +419,11 @@ window.GiglzPlayer = (function() {
                 albumArt: track.album.images[track.album.images.length - 1]?.url,
             };
 
-            updateTrackDisplay(currentTrack);
             updatePlayPauseButton(state.paused);
 
+            // Get track status (includes show context for scouted tracks)
             const status = await checkTrackStatus(track.uri);
+            updateTrackDisplay(currentTrack, status.showContext);
             updateLoveButton(status.loved, status.scouted);
         });
 
