@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="home">
+    <h1>Welcome to Giglz</h1>
+    <p>You're logged in as {{ user.email }}</p>
+    <form method="POST" action="{{ url_for('auth.logout') }}">
+        <button type="submit">Log out</button>
+    </form>
+</div>
+{% endblock %}
