@@ -16,11 +16,13 @@ def _utcnow():
 @pytest.fixture
 def app():
     """Create app with test config."""
-    app = create_app({
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "DEV_MODE": True,
-    })
+    app = create_app(
+        {
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "DEV_MODE": True,
+        }
+    )
 
     with app.app_context():
         yield app

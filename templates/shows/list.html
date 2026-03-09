@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="shows-page">
+    <h1>Shows</h1>
+    <a href="{{ url_for('shows.add_form') }}">Add Show</a>
+
+    {% if shows %}
+    <ul class="show-list">
+        {% for show in shows %}
+        <li class="show-card">
+            <strong>{{ show.artists | map(attribute='name') | join(', ') }}</strong>
+            <br>
+            {{ show.date.strftime('%Y-%m-%d') }} @ {{ show.venue.name }}, {{ show.venue.city.name }}
+            {% if show.ticket_url %}
+            <br><a href="{{ show.ticket_url }}" target="_blank">Tickets</a>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No shows yet. <a href="{{ url_for('shows.add_form') }}">Add one!</a></p>
+    {% endif %}
+</div>
+{% endblock %}

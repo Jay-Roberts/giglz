@@ -1,7 +1,8 @@
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, redirect, url_for
 from config import Config
 from db_models import db
 from routes.auth import auth_bp, get_current_user
+from routes.shows import shows_bp
 
 
 def create_app(config_overrides=None):
@@ -16,12 +17,13 @@ def create_app(config_overrides=None):
         db.create_all()
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(shows_bp)
 
     @app.route("/")
     def home():
         user = get_current_user()
         if user:
-            return render_template("home.html", user=user)
+            return redirect(url_for("shows.list_shows"))
         return redirect(url_for("auth.login_form"))
 
     return app

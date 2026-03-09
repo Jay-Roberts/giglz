@@ -126,10 +126,9 @@ def test_verify_valid_token_creates_session(client, app, create_user, create_tok
     token = create_token(user_id)
 
     client.get(f"/auth/verify?token={token}")
-    response = client.get("/")
+    response = client.get("/", follow_redirects=True)
 
     assert response.status_code == HOME_WITH_SESSION_STATUS
-    assert email.encode() in response.data
 
 
 def test_verify_invalid_token_shows_error(client):

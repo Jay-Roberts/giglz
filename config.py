@@ -20,3 +20,6 @@ class Config:
     #! Will this hold on railway
     BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:5001")
     DEV_MODE = os.environ.get("GIGLZ_DEV_MODE", "").lower() in ("1", "true")
+    SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID", "")
+    SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
+    SPOTIFY_TOP_TRACKS_LIMIT = 5
