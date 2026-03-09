@@ -3,6 +3,7 @@ from config import Config
 from db_models import db
 from routes.auth import auth_bp, get_current_user
 from routes.shows import shows_bp
+from routes.playlists import playlists_bp
 
 
 def create_app(config_overrides=None):
@@ -18,6 +19,7 @@ def create_app(config_overrides=None):
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(shows_bp)
+    app.register_blueprint(playlists_bp)
 
     @app.route("/")
     def home():

@@ -1,8 +1,8 @@
 """
 Database models for Giglz.
 
-Core entities: User, Show, Artist, Venue, City, Track
-Join tables: ShowArtist (many-to-many)
+Core entities: User, Show, Artist, Venue, City, Track, Playlist
+Join tables: ShowArtist, PlaylistShow (many-to-many)
 Auth: MagicLinkToken
 
 All IDs are UUIDs stored as strings. Timestamps are naive UTC for SQLite compatibility.
@@ -98,3 +98,22 @@ class ShowArtist(db.Model):
     __tablename__ = "show_artist"
     show_id = db.Column(db.String(36), db.ForeignKey("show.id"), primary_key=True)
     artist_id = db.Column(db.String(36), db.ForeignKey("artist.id"), primary_key=True)
+
+
+class Playlist(db.Model):
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey("user.id"), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    spotify_playlist_id = db.Column(db.String(255), nullable=True)
+    is_now_scouting = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=_utcnow)
+
+    user = db.relationship("User", backref="playlists")
+    shows = db.relationship("Show", secondary="playlist_show", backref="playlists")
+
+
+class PlaylistShow(db.Model):
+    __tablename__ = "playlist_show"
+    playlist_id = db.Column(db.String(36), db.ForeignKey("playlist.id"), primary_key=True)
+    show_id = db.Column(db.String(36), db.ForeignKey("show.id"), primary_key=True)
+    added_at = db.Column(db.DateTime, default=_utcnow)

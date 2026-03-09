@@ -6,6 +6,10 @@
     <title>Giglz</title>
 </head>
 <body>
+    <nav>
+        <a href="{{ url_for('shows.list_shows') }}">Shows</a>
+        <a href="{{ url_for('playlists.scouting') }}">Scouting</a>
+    </nav>
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
             <div class="flash {{ category }}">{{ message }}</div>

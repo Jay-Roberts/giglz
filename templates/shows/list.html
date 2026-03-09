@@ -14,6 +14,16 @@
             {% if show.ticket_url %}
             <br><a href="{{ show.ticket_url }}" target="_blank">Tickets</a>
             {% endif %}
+            <br>
+            {% if show.id in scouting_show_ids %}
+            <form method="POST" action="{{ url_for('playlists.remove_show', show_id=show.id) }}" style="display:inline">
+                <button type="submit">Scouting</button>
+            </form>
+            {% else %}
+            <form method="POST" action="{{ url_for('playlists.add_show', show_id=show.id) }}" style="display:inline">
+                <button type="submit">Scout</button>
+            </form>
+            {% endif %}
         </li>
         {% endfor %}
     </ul>

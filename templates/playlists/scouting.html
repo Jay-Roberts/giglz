@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="scouting-page">
+    <h1>{{ playlist.name }}</h1>
+    <p>{{ show_count }} shows, {{ track_count }} tracks</p>
+
+    {% if playlist.shows %}
+    <h2>Shows</h2>
+    <ul class="show-list">
+        {% for show in playlist.shows %}
+        <li>
+            <strong>{{ show.artists | map(attribute='name') | join(', ') }}</strong>
+            — {{ show.date.strftime('%Y-%m-%d') }} @ {{ show.venue.name }}
+            <form method="POST" action="{{ url_for('playlists.remove_show', show_id=show.id) }}" style="display:inline">
+                <button type="submit">Remove</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if tracks %}
+    <h2>Tracks</h2>
+    <ul class="track-list">
+        {% for track in tracks %}
+        <li>{{ track.name }} — {{ track.artist.name }}</li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No tracks yet. <a href="{{ url_for('shows.list_shows') }}">Add some shows!</a></p>
+    {% endif %}
+</div>
+{% endblock %}
