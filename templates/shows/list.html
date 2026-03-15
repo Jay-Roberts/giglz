@@ -1,101 +1,80 @@
 {% extends "base.html" %}
 {% block content %}
-<style>
-.show-filters {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-    align-items: end;
-}
-.show-filters label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-.show-card .heat {
-    color: #e74c3c;
-    font-weight: bold;
-}
-.show-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-</style>
-
 <div class="shows-page"
      x-data="showsPage()"
      data-status-options='{{ status_options | tojson }}'
      data-statuses='{{ statuses | tojson }}'>
-    <h1>Shows</h1>
-    <a href="{{ url_for('shows.add_form') }}">Add Show</a>
+    <h1 class="text-2xl font-bold mb-4">Shows</h1>
+    <a href="{{ url_for('shows.add_form') }}" class="btn-primary inline-block mb-6">Add Show</a>
 
-    <form method="GET" class="show-filters">
-        <label>
-            Status:
-            <select name="status">
+    <form method="GET" class="flex flex-wrap gap-4 items-end mb-6">
+        <div>
+            <label class="label">Status:</label>
+            <select name="status" class="input">
                 <option value="">All</option>
                 <option value="going" {{ 'selected' if filters.status == 'going' else '' }}>Going</option>
                 <option value="skipping" {{ 'selected' if filters.status == 'skipping' else '' }}>Busy</option>
             </select>
-        </label>
+        </div>
 
-        <label>
-            From:
-            <input type="date" name="date_from" value="{{ filters.date_from or '' }}">
-        </label>
+        <div>
+            <label class="label">From:</label>
+            <input type="date" name="date_from" value="{{ filters.date_from or '' }}" class="input">
+        </div>
 
-        <label>
-            To:
-            <input type="date" name="date_to" value="{{ filters.date_to or '' }}">
-        </label>
+        <div>
+            <label class="label">To:</label>
+            <input type="date" name="date_to" value="{{ filters.date_to or '' }}" class="input">
+        </div>
 
-        <label>
-            Min heat:
-            <input type="number" name="heat_min" value="{{ filters.heat_min }}" min="0" style="width:60px;">
-        </label>
+        <div>
+            <label class="label">Min heat:</label>
+            <input type="number" name="heat_min" value="{{ filters.heat_min }}" min="0" class="input w-16">
+        </div>
 
-        <button type="submit">Filter</button>
-        <a href="{{ url_for('shows.list_shows') }}">Clear</a>
+        <button type="submit" class="btn-primary">Filter</button>
+        <a href="{{ url_for('shows.list_shows') }}" class="btn-secondary">Clear</a>
     </form>
 
     {% if shows_with_heat %}
-    <ul class="show-list">
+    <ul class="list">
         {% for show, heat in shows_with_heat %}
-        <li class="show-card">
-            <div class="show-header">
+        <li class="card">
+            <div class="card-header">
                 <strong>{{ show.artists | map(attribute='name') | join(', ') }}</strong>
-                <span class="heat" title="Heat score">
-                    {% if heat > 0 %}{{ heat }} &#9829;{% else %}&mdash;{% endif %}
+                <span class="text-accent font-bold" title="Heat score">
+                    {% if heat > 0 %}{{ heat }} ♥{% else %}—{% endif %}
                 </span>
             </div>
-            {{ show.date.strftime('%Y-%m-%d') }} @ {{ show.venue.name }}, {{ show.venue.city.name }}
-            {% if show.ticket_url %}
-            <br><a href="{{ show.ticket_url }}" target="_blank">Tickets</a>
-            {% endif %}
-            <br>
-            <button @click="scoutShow('{{ show.id }}')" class="scout-btn">
-                Scout
-            </button>
+            <p class="text-text-muted mb-3">
+                {{ show.date.strftime('%Y-%m-%d') }} @ {{ show.venue.name }}, {{ show.venue.city.name }}
+                {% if show.ticket_url %}
+                · <a href="{{ show.ticket_url }}" target="_blank" class="text-accent hover:underline">Tickets</a>
+                {% endif %}
+            </p>
+            <div class="flex items-center gap-3">
+                <button @click="scoutShow('{{ show.id }}')" class="btn-secondary text-sm">
+                    Scout
+                </button>
 
-            <span class="show-status">
-                <button
-                    @click="setStatus('{{ show.id }}', STATUS.GOING)"
-                    :class="statuses['{{ show.id }}'] === STATUS.GOING ? 'active' : ''">
-                    Going
-                </button>
-                <button
-                    @click="setStatus('{{ show.id }}', STATUS.SKIPPING)"
-                    :class="statuses['{{ show.id }}'] === STATUS.SKIPPING ? 'active' : ''">
-                    Busy
-                </button>
-            </span>
+                <span class="btn-toggle-group">
+                    <button
+                        @click="setStatus('{{ show.id }}', STATUS.GOING)"
+                        :class="['btn-toggle', statuses['{{ show.id }}'] === STATUS.GOING ? 'active' : '']">
+                        Going
+                    </button>
+                    <button
+                        @click="setStatus('{{ show.id }}', STATUS.SKIPPING)"
+                        :class="['btn-toggle', statuses['{{ show.id }}'] === STATUS.SKIPPING ? 'active' : '']">
+                        Busy
+                    </button>
+                </span>
+            </div>
         </li>
         {% endfor %}
     </ul>
     {% else %}
-    <p>No shows match your filters. <a href="{{ url_for('shows.list_shows') }}">Clear filters</a> or <a href="{{ url_for('shows.add_form') }}">add a show</a>.</p>
+    <p class="text-text-muted">No shows match your filters. <a href="{{ url_for('shows.list_shows') }}" class="text-accent hover:underline">Clear filters</a> or <a href="{{ url_for('shows.add_form') }}" class="text-accent hover:underline">add a show</a>.</p>
     {% endif %}
 </div>
 

@@ -1,64 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="gray">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Giglz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <style>
-        .loved { color: red; }
-        .show-status button.active { font-weight: bold; background: #eee; }
-    </style>
 </head>
-<body>
-    <nav>
-        <a href="{{ url_for('shows.list_shows') }}">Shows</a>
-        <a href="{{ url_for('board.index') }}">Board</a>
-        <a href="{{ url_for('playlists.scouting') }}">Scouting</a>
-        <span style="margin-left:auto;">
-            <form method="POST" action="{{ url_for('auth.logout') }}" style="display:inline;">
-                <button type="submit">Logout</button>
+<body class="bg-bg text-text min-h-screen font-body pb-20">
+    <nav class="bg-surface border-b border-border px-4 py-3 flex items-center gap-6">
+        <a href="{{ url_for('shows.list_shows') }}" class="text-display text-accent text-xl hover:text-secondary transition-colors">Giglz</a>
+        <a href="{{ url_for('shows.list_shows') }}" class="text-accent hover:underline">Shows</a>
+        <a href="{{ url_for('board.index') }}" class="text-accent hover:underline">Board</a>
+        <a href="{{ url_for('playlists.scouting') }}" class="text-accent hover:underline">Scouting</a>
+        <span class="ml-auto flex items-center gap-3">
+            <select id="theme-picker" onchange="setTheme(this.value)" class="bg-surface border border-border rounded px-2 py-1 text-text">
+                <option value="gray">gray</option>
+                <option value="miami">miami</option>
+                <option value="arcade">arcade</option>
+            </select>
+            <form method="POST" action="{{ url_for('auth.logout') }}">
+                <button type="submit" class="text-text-muted hover:text-text">Logout</button>
             </form>
         </span>
     </nav>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for category, message in messages %}
-            <div class="flash {{ category }}">{{ message }}</div>
-        {% endfor %}
-    {% endwith %}
-    {% block content %}{% endblock %}
 
-    <footer id="player-bar" x-data="player()" x-init="startPolling()">
+    <main class="max-w-4xl mx-auto px-4 py-6">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="flash bg-surface border border-border px-4 py-2 rounded mb-4 {{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer id="player-bar" x-data="player()" x-init="startPolling()" class="fixed bottom-0 left-0 right-0 bg-surface border-t border-border px-4 py-3 flex items-center gap-4">
         <template x-if="!connected">
-            <a href="/spotify/connect">Connect Spotify</a>
+            <a href="/spotify/connect" class="text-accent hover:underline">Connect Spotify</a>
         </template>
         <template x-if="connected && playing">
-            <div class="now-playing">
-                <img :src="track.album_art" alt="Album art" style="width:40px;height:40px;">
+            <div class="flex items-center gap-4">
+                <img :src="track.album_art" alt="Album art" class="w-10 h-10 rounded">
                 <div>
                     <span x-text="track.name"></span> —
-                    <span x-text="track.artist"></span>
+                    <span x-text="track.artist" class="text-text-muted"></span>
                 </div>
                 <button
                     @click="toggleLove()"
-                    :class="track?.loved ? 'loved' : ''"
-                    :disabled="!track"
-                    style="margin-left:10px;">
+                    :class="track?.loved ? 'text-accent' : 'text-text-muted hover:text-accent'"
+                    :disabled="!track">
                     ♥
                 </button>
                 <template x-if="showContext">
-                    <button @click="scoutShow(showContext.show_id)" style="margin-left:10px;">
+                    <button @click="scoutShow(showContext.show_id)" class="text-accent hover:underline">
                         Scout <span x-text="showContext.show_name"></span>
                     </button>
                 </template>
             </div>
         </template>
         <template x-if="connected && !playing">
-            <span>Not playing</span>
+            <span class="text-text-muted">Not playing</span>
         </template>
         <template x-if="connected">
-            <form method="POST" action="/spotify/disconnect" style="display:inline; margin-left:10px;">
-                <button type="submit">Disconnect Spotify</button>
+            <form method="POST" action="/spotify/disconnect" class="ml-auto">
+                <button type="submit" class="text-text-muted hover:text-text text-sm">Disconnect</button>
             </form>
         </template>
     </footer>
@@ -126,6 +136,18 @@
             }
         }
     }
+    </script>
+    <script>
+    function setTheme(t) {
+        document.documentElement.dataset.theme = t;
+        localStorage.setItem('theme', t);
+    }
+    (function() {
+        const saved = localStorage.getItem('theme') || 'gray';
+        document.documentElement.dataset.theme = saved;
+        const picker = document.getElementById('theme-picker');
+        if (picker) picker.value = saved;
+    })();
     </script>
 </body>
 </html>

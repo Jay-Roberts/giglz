@@ -1,0 +1,278 @@
+/* ==========================================
+   Tailwind v4 + Theming
+
+   Structure:
+   - @import tailwindcss (base styles + utilities)
+   - @theme (semantic tokens → generates utilities)
+   - [data-theme] blocks (runtime overrides)
+
+   See: learnings/design-basics.md for 60/30/10 rule
+   ========================================== */
+
+@import "tailwindcss";
+
+/* ==========================================
+   @theme: define semantic tokens
+
+   These generate utilities (bg-accent, text-muted, etc.)
+   AND become CSS variables.
+
+   Default values = gray theme.
+   ========================================== */
+
+@theme {
+  /* Clear Tailwind's default color palette */
+  --color-*: initial;
+
+  /* constants (not theme-dependent) */
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* 60% - ground */
+  --color-bg: #f5f5f5;
+  --color-surface: #ffffff;
+
+  /* 30% - secondary/info */
+  --color-secondary: #6b7280;
+
+  /* 10% - accent/action */
+  --color-accent: #0066cc;
+
+  /* text hierarchy */
+  --color-text: #222222;
+  --color-text-muted: #666666;
+
+  /* structural */
+  --color-border: #dddddd;
+
+  /* semantic states */
+  --color-error: #dc2626;
+  --color-success: #16a34a;
+
+  /* typography */
+  --font-body: system-ui, sans-serif;
+  --font-display: system-ui, sans-serif;
+
+  /* shape */
+  --radius-DEFAULT: 4px;
+
+  /* effects (vibe layer) */
+  --glow-accent: none;
+  --glow-secondary: none;
+  --border-alpha: 1;
+}
+
+/* ==========================================
+   GRAY: neutral dev mode (default)
+   ========================================== */
+
+[data-theme="gray"] {
+  /* 60% - ground */
+  --color-bg: #f5f5f5;
+  --color-surface: #ffffff;
+
+  /* 30% - secondary/info */
+  --color-secondary: #6b7280;
+
+  /* 10% - accent/action */
+  --color-accent: #0066cc;
+
+  /* text hierarchy */
+  --color-text: #222222;
+  --color-text-muted: #666666;
+
+  /* structural */
+  --color-border: #dddddd;
+
+  /* semantic states */
+  --color-error: #dc2626;
+  --color-success: #16a34a;
+
+  /* typography */
+  --font-body: system-ui, sans-serif;
+  --font-display: system-ui, sans-serif;
+
+  /* shape */
+  --radius-DEFAULT: 4px;
+
+  /* effects - minimal for dev mode */
+  --glow-accent: none;
+  --glow-secondary: none;
+  --border-alpha: 1;
+}
+
+/* ==========================================
+   MIAMI: neon noir
+   pink accent (action) + cyan secondary (info)
+   ========================================== */
+
+[data-theme="miami"] {
+  /* 60% - ground */
+  --color-bg: #1a0a2e;
+  --color-surface: #1f1035;
+
+  /* 30% - secondary/info */
+  --color-secondary: #00f5ff;
+
+  /* 10% - accent/action */
+  --color-accent: #ff6eb4;
+
+  /* text hierarchy */
+  --color-text: #ffffff;
+  --color-text-muted: #b8b8b8;
+
+  /* structural */
+  --color-border: #3d2a5c;
+
+  /* semantic states */
+  --color-error: #ff4444;
+  --color-success: #00ff88;
+
+  /* typography */
+  --font-body: 'Space Mono', monospace;
+  --font-display: 'Press Start 2P', monospace;
+
+  /* shape */
+  --radius-DEFAULT: 0px;
+
+  /* effects - vaporwave glow */
+  --glow-accent: 0 0 20px rgba(255, 110, 180, 0.4);
+  --glow-secondary: 0 0 15px rgba(0, 245, 255, 0.3);
+  --border-alpha: 0.3;
+}
+
+/* ==========================================
+   ARCADE: bright bubbly
+   teal accent (action) + coral secondary (info)
+   ========================================== */
+
+[data-theme="arcade"] {
+  /* 60% - ground */
+  --color-bg: #e8f4f8;
+  --color-surface: #ffffff;
+
+  /* 30% - secondary/info */
+  --color-secondary: #ff6b6b;
+
+  /* 10% - accent/action */
+  --color-accent: #00c9a7;
+
+  /* text hierarchy */
+  --color-text: #1a1a2e;
+  --color-text-muted: #5a6a7a;
+
+  /* structural */
+  --color-border: #b8e0d2;
+
+  /* semantic states */
+  --color-error: #ef4444;
+  --color-success: #2dd4bf;
+
+  /* typography */
+  --font-body: 'Nunito', system-ui, sans-serif;
+  --font-display: 'Nunito', system-ui, sans-serif;
+
+  /* shape */
+  --radius-DEFAULT: 12px;
+
+  /* effects - subtle and friendly */
+  --glow-accent: 0 0 10px rgba(0, 201, 167, 0.2);
+  --glow-secondary: none;
+  --border-alpha: 1;
+}
+
+/* ==========================================
+   Components
+   ========================================== */
+
+@layer base {
+  /* headings use display font by default */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+  }
+  h1 {
+    text-shadow: var(--glow-accent);
+  }
+}
+
+@layer components {
+  /* explicit display class for non-headings */
+  .text-display {
+    font-family: var(--font-display);
+    text-shadow: var(--glow-accent);
+  }
+
+  /* flash messages */
+  .flash.error { @apply border-error text-error; }
+  .flash.success { @apply border-success text-success; }
+
+  /* buttons - shared base styles inlined (v4 can't @apply custom classes) */
+  .btn-primary {
+    @apply px-4 py-2 rounded font-body transition-colors;
+    @apply bg-accent text-white hover:opacity-90;
+    box-shadow: var(--glow-accent);
+  }
+  .btn-secondary {
+    @apply px-4 py-2 rounded font-body transition-colors;
+    @apply bg-surface border border-border text-text hover:bg-border;
+  }
+
+  /* inputs */
+  .input {
+    @apply bg-surface border border-border rounded px-3 py-2 text-text;
+    @apply focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent;
+  }
+  select.input {
+    @apply appearance-none cursor-pointer;
+  }
+
+  /* labels */
+  .label {
+    @apply text-text-muted text-sm mb-1 block;
+  }
+
+  /* toggle button group */
+  .btn-toggle-group {
+    @apply inline-flex rounded overflow-hidden border border-border;
+  }
+  .btn-toggle {
+    @apply px-3 py-1 bg-surface text-text-muted transition-colors;
+    @apply hover:bg-border;
+  }
+  .btn-toggle.active {
+    @apply bg-accent text-white;
+  }
+
+  /* love button */
+  .btn-love {
+    @apply text-text-muted hover:text-accent transition-colors;
+  }
+  .btn-love.loved {
+    @apply text-accent;
+  }
+
+  /* cards */
+  .card {
+    @apply bg-surface border border-border rounded p-4;
+    box-shadow: var(--glow-accent);
+  }
+  .card-header {
+    @apply flex justify-between items-center mb-2;
+  }
+
+  /* sections */
+  .section {
+    @apply mb-8;
+  }
+  .section-title {
+    @apply text-lg font-bold mb-3;
+  }
+
+  /* lists */
+  .list {
+    @apply space-y-2;
+  }
+  .list-item {
+    @apply py-1;
+  }
+}

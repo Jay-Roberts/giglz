@@ -1,39 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="add-show">
-    <h1>Add Show</h1>
-    <form method="POST" action="{{ url_for('shows.add_submit') }}">
+<div class="max-w-lg">
+    <h1 class="text-2xl font-bold mb-6">Add Show</h1>
+    <form method="POST" action="{{ url_for('shows.add_submit') }}" class="space-y-4">
         <div>
-            <label for="artists">Artists (comma-separated)</label>
-            {% if show %}
-            <input type="text" name="artists" id="artists"
-                   placeholder="EDIT" required>
-            {% else %}
-                   <input type="text" name="artists" id="artists"
+            <label for="artists" class="label">Artists (comma-separated)</label>
+            <input type="text" name="artists" id="artists" class="input w-full"
                    placeholder="Artist 1, Artist 2" required>
-            {% endif %}
         </div>
         <div>
-            <label for="date">Date</label>
-            <input type="date" name="date" id="date" required>
+            <label for="date" class="label">Date</label>
+            <input type="date" name="date" id="date" class="input w-full" required>
         </div>
         <div>
-            <label for="venue">Venue</label>
-            <input type="text" name="venue" id="venue"
+            <label for="venue" class="label">Venue</label>
+            <input type="text" name="venue" id="venue" class="input w-full"
                    placeholder="The Earl" required>
         </div>
         <div>
-            <label for="city">City</label>
-            <input type="text" name="city" id="city"
+            <label for="city" class="label">City</label>
+            <input type="text" name="city" id="city" class="input w-full"
                    placeholder="Atlanta" required>
         </div>
         <div>
-            <label for="ticket_url">Ticket URL (optional)</label>
-            <input type="url" name="ticket_url" id="ticket_url"
+            <label for="ticket_url" class="label">Ticket URL (optional)</label>
+            <input type="url" name="ticket_url" id="ticket_url" class="input w-full"
                    placeholder="https://...">
         </div>
-        <button type="submit">Add Show</button>
+        <div class="flex items-center gap-4 pt-2">
+            <button type="submit" class="btn-primary">Add Show</button>
+            <a href="{{ url_for('shows.list_shows') }}" class="text-accent hover:underline">Back to shows</a>
+        </div>
     </form>
-    <p><a href="{{ url_for('shows.list_shows') }}">Back to shows</a></p>
 </div>
 {% endblock %}
