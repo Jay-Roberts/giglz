@@ -3,6 +3,7 @@ Shows service — business logic for adding and listing shows.
 
 Orchestrates: Spotify search → find/create entities → persist show.
 """
+
 from datetime import date
 from db_models import db, City, Venue, Artist, Track, Show, ShowArtist, ShowSource
 from spotify import SpotifyAPI
@@ -10,8 +11,6 @@ from spotify import SpotifyAPI
 
 class DuplicateShowError(Exception):
     """Show with same artists, venue, and date already exists."""
-
-    pass
 
 
 class ShowService:
@@ -82,6 +81,7 @@ class ShowService:
         return city
 
     def _find_or_create_venue(self, name: str, city_id: str) -> Venue:
+        # TODO: We need better city handeling. Paris -> TX or FR?
         name = name.strip()
         venue = Venue.query.filter(
             db.func.lower(Venue.name) == name.lower(), Venue.city_id == city_id
@@ -123,7 +123,7 @@ class ShowService:
             return artist
         else:
             # artist not found on spotify - create without spotify data
-            # check by name first (case-insensitive)
+            # case-insensitive match to avoid duplicates (CHVRCHES vs Chvrches)
             artist = Artist.query.filter(
                 db.func.lower(Artist.name) == name.lower()
             ).first()
@@ -139,7 +139,8 @@ class ShowService:
         """Pull top tracks from Spotify and create Track records."""
         from flask import current_app
 
-        limit = current_app.config.get("SPOTIFY_TOP_TRACKS_LIMIT", 5)
+        settings = current_app.extensions["settings"]
+        limit = settings.spotify_top_tracks_limit
 
         tracks = self.spotify.get_top_tracks(spotify_id, limit=limit)
         for track_info in tracks:

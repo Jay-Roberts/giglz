@@ -9,7 +9,9 @@ from flask import (
     flash,
     g,
 )
+from pydantic import ValidationError
 from services.auth import request_login, verify_token, AuthError, TokenExpiredError
+from schemas import LoginRequest
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -47,20 +49,19 @@ def login_form():
 
 @auth_bp.route("/login", methods=["POST"])
 def login_submit():
-    email = request.form.get("email", "").strip()
-
-    if not email or "@" not in email:
+    try:
+        req = LoginRequest(email=request.form.get("email", ""))
+    except ValidationError:
         flash("Please enter a valid email address", "error")
         return render_template("auth/login.html"), 400
 
     try:
-        request_login(email)
-    except Exception as e:
-        # log error, show generic message
+        request_login(req.email)
+    except Exception:
         flash("Couldn't send login email. Please try again.", "error")
         return render_template("auth/login.html"), 500
 
-    return render_template("auth/check_email.html", email=email)
+    return render_template("auth/check_email.html", email=req.email)
 
 
 @auth_bp.route("/verify")

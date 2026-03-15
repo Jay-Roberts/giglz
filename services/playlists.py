@@ -3,15 +3,17 @@ Playlist service — business logic for playlists.
 
 Handles Now Scouting playlist: get/create, add/remove shows, get tracks.
 """
-from db_models import db, Playlist, PlaylistShow, Show, Track
+
+from db_models import db, Playlist, PlaylistShow, Track
 
 
 class PlaylistService:
+    """Manages playlists in the database (not Spotify sync)."""
+
     def get_or_create_now_scouting(self, user_id: str) -> Playlist:
         """Get user's Now Scouting playlist, create if doesn't exist."""
         playlist = Playlist.query.filter_by(
-            user_id=user_id,
-            is_now_scouting=True
+            user_id=user_id, is_now_scouting=True
         ).first()
 
         if playlist:
@@ -37,10 +39,7 @@ class PlaylistService:
 
     def remove_show_from_playlist(self, playlist_id: str, show_id: str) -> None:
         """Remove show from playlist."""
-        PlaylistShow.query.filter_by(
-            playlist_id=playlist_id,
-            show_id=show_id
-        ).delete()
+        PlaylistShow.query.filter_by(playlist_id=playlist_id, show_id=show_id).delete()
         db.session.commit()
 
     def get_playlist_tracks(self, playlist_id: str) -> list[Track]:
@@ -50,9 +49,9 @@ class PlaylistService:
             return []
 
         # playlist → shows → artists → tracks
+        # TODO: Consider flattening with a join query
         tracks = []
         seen_track_ids = set()
-
         for show in playlist.shows:
             for artist in show.artists:
                 for track in artist.tracks:
@@ -64,10 +63,12 @@ class PlaylistService:
 
     def is_show_in_playlist(self, playlist_id: str, show_id: str) -> bool:
         """Check if show is already in playlist."""
-        return PlaylistShow.query.filter_by(
-            playlist_id=playlist_id,
-            show_id=show_id
-        ).first() is not None
+        return (
+            PlaylistShow.query.filter_by(
+                playlist_id=playlist_id, show_id=show_id
+            ).first()
+            is not None
+        )
 
     def get_scouting_show_ids(self, playlist_id: str) -> set[str]:
         """Get set of show IDs in playlist (for template context)."""

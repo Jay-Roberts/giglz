@@ -18,11 +18,17 @@ def app():
     """Create app with test config."""
     app = create_app(
         {
-            "TESTING": True,
-            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-            "DEV_MODE": True,
+            "secret_key": "test-secret-key",
+            "database_url": "sqlite:///:memory:",
+            "dev_mode": True,
+            "spotify_client_id": "test-client-id",
+            "spotify_client_secret": "test-client-secret",
         }
     )
+    app.config["TESTING"] = True
+
+    assert ":memory:" in app.config["SQLALCHEMY_DATABASE_URI"], \
+        "Tests must use in-memory database! Check that database_url is set correctly."
 
     with app.app_context():
         yield app

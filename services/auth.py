@@ -2,7 +2,11 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from db_models import db, User, MagicLinkToken
 from services.email import send_magic_link
-from flask import current_app
+
+
+def _get_settings():
+    from flask import current_app
+    return current_app.extensions["settings"]
 
 
 def _utcnow():
@@ -41,7 +45,7 @@ def request_login(email: str) -> None:
 
     # generate token (secure random, 32 bytes = 43 chars base64)
     token = secrets.token_urlsafe(32)
-    expiry_minutes = current_app.config["MAGIC_LINK_EXPIRY_MINUTES"]
+    expiry_minutes = _get_settings().magic_link_expiry_minutes
     expires_at = _utcnow() + timedelta(minutes=expiry_minutes)
 
     magic_token = MagicLinkToken(user_id=user.id, token=token, expires_at=expires_at)

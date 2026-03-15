@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Giglz</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
     <nav>
@@ -16,5 +17,62 @@
         {% endfor %}
     {% endwith %}
     {% block content %}{% endblock %}
+
+    <footer id="player-bar" x-data="player()" x-init="startPolling()">
+        <template x-if="!connected">
+            <a href="/spotify/connect">Connect Spotify</a>
+        </template>
+        <template x-if="connected && playing">
+            <div class="now-playing">
+                <img :src="track.album_art" alt="Album art" style="width:40px;height:40px;">
+                <div>
+                    <span x-text="track.name"></span> —
+                    <span x-text="track.artist"></span>
+                </div>
+            </div>
+        </template>
+        <template x-if="connected && !playing">
+            <span>Not playing</span>
+        </template>
+    </footer>
+
+    <script>
+    function player() {
+        return {
+            connected: false,
+            playing: false,
+            track: null,
+            showContext: null,
+
+            startPolling() {
+                this.poll();
+                setInterval(() => this.poll(), 3000);
+            },
+
+            async poll() {
+                try {
+                    const res = await fetch('/api/now-playing');
+                    if (res.status === 401) {
+                        this.connected = false;
+                        return;
+                    }
+                    const data = await res.json();
+
+                    if (data.connected === false) {
+                        this.connected = false;
+                        return;
+                    }
+
+                    this.connected = true;
+                    this.playing = data.playing;
+                    this.track = data.track;
+                    this.showContext = data.show_context;
+                } catch (e) {
+                    console.error('Poll failed', e);
+                }
+            }
+        }
+    }
+    </script>
 </body>
 </html>

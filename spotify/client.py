@@ -1,7 +1,6 @@
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from rapidfuzz import fuzz
-from flask import current_app
 
 from spotify.models import ArtistSearch, TrackInfo
 
@@ -9,19 +8,26 @@ MATCH_REJECT_THRESHOLD = 75
 MATCH_REVIEW_THRESHOLD = 85
 
 
+def _get_settings():
+    from flask import current_app
+    return current_app.extensions["settings"]
+
+
 class SpotifyAPI:
     """Spotify API wrapper using client credentials (no user auth needed)."""
 
     def __init__(self):
+        settings = _get_settings()
         auth_manager = SpotifyClientCredentials(
-            client_id=current_app.config["SPOTIFY_CLIENT_ID"],
-            client_secret=current_app.config["SPOTIFY_CLIENT_SECRET"],
+            client_id=settings.spotify_client_id,
+            client_secret=settings.spotify_client_secret,
         )
         self._sp = spotipy.Spotify(auth_manager=auth_manager)
 
     def search_artist(self, name: str) -> ArtistSearch | None:
         """Search for artist, return best fuzzy match or None."""
-        results = self._sp.search(q=name, type="artist", limit=5)
+        limit = _get_settings().spotify_artist_search_limit
+        results = self._sp.search(q=name, type="artist", limit=limit)
         if not results:
             return None
 

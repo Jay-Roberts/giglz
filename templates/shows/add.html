@@ -5,8 +5,13 @@
     <form method="POST" action="{{ url_for('shows.add_submit') }}">
         <div>
             <label for="artists">Artists (comma-separated)</label>
+            {% if show %}
             <input type="text" name="artists" id="artists"
+                   placeholder="EDIT" required>
+            {% else %}
+                   <input type="text" name="artists" id="artists"
                    placeholder="Artist 1, Artist 2" required>
+            {% endif %}
         </div>
         <div>
             <label for="date">Date</label>
