@@ -1,6 +1,7 @@
 # schemas.py
 """Pydantic models for request/response contracts."""
 from datetime import date, datetime
+from typing import Literal
 from pydantic import BaseModel, EmailStr, field_validator, Field
 
 
@@ -134,3 +135,18 @@ class LoveTrackResponse(BaseModel):
     """POST /api/love response."""
     loved: bool
     spotify_track_id: str
+
+
+# =============================================================================
+# SHOW STATUS
+# =============================================================================
+
+class SetShowStatusRequest(BaseModel):
+    """POST /api/shows/{id}/status request."""
+    status: Literal["going", "skipping"] | None  # None = clear
+
+
+class ShowStatusResponse(BaseModel):
+    """POST /api/shows/{id}/status response."""
+    show_id: str
+    status: str | None

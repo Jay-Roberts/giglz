@@ -3,10 +3,15 @@ API routes — JSON endpoints for player polling.
 """
 from flask import Blueprint, jsonify, session, request
 from pydantic import ValidationError
-from db_models import Track
+from db_models import Track, ShowStatus
 from spotify.user_client import SpotifyUserClient, SpotifyNotConnectedError
 from services.loves import LoveService
-from schemas import NowPlayingResponse, TrackState, ShowContext, LoveTrackRequest, LoveTrackResponse
+from services.shows import ShowService
+from schemas import (
+    NowPlayingResponse, TrackState, ShowContext,
+    LoveTrackRequest, LoveTrackResponse,
+    SetShowStatusRequest, ShowStatusResponse,
+)
 
 _love_service = LoveService()
 
@@ -85,4 +90,32 @@ def toggle_love():
 
     # Render
     response = LoveTrackResponse(loved=is_now_loved, spotify_track_id=req.spotify_track_id)
+    return jsonify(response.model_dump())
+
+
+@api_bp.route("/shows/<show_id>/status", methods=["POST"])
+def set_show_status(show_id: str):
+    """Set attendance status for a show."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Not authenticated"}), 401
+
+    # Parse
+    try:
+        req = SetShowStatusRequest.model_validate_json(request.data)
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 400
+
+    # Convert string to enum (or None)
+    status = ShowStatus(req.status) if req.status else None
+
+    # Command
+    service = ShowService()
+    new_status = service.set_show_status(user_id, show_id, status)
+
+    # Render
+    response = ShowStatusResponse(
+        show_id=show_id,
+        status=new_status.value if new_status else None
+    )
     return jsonify(response.model_dump())

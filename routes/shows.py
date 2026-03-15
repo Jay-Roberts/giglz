@@ -6,6 +6,7 @@ Thin layer: parse request, call ShowService, render response.
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from pydantic import ValidationError
 from routes.auth import login_required, get_current_user
+from db_models import ShowStatus
 from services.shows import ShowService, DuplicateShowError
 from services.playlists import PlaylistService
 from schemas import AddShowRequest
@@ -24,7 +25,18 @@ def list_shows():
     playlist = playlist_service.get_or_create_now_scouting(user.id)
     scouting_show_ids = playlist_service.get_scouting_show_ids(playlist.id)
 
-    return render_template("shows/list.html", shows=shows, scouting_show_ids=scouting_show_ids)
+    # Show statuses for Going/Busy buttons
+    statuses = show_service.get_user_show_statuses(user.id)
+    statuses_json = {k: v.value for k, v in statuses.items()}
+    status_options = {s.name: s.value for s in ShowStatus}
+
+    return render_template(
+        "shows/list.html",
+        shows=shows,
+        scouting_show_ids=scouting_show_ids,
+        statuses=statuses_json,
+        status_options=status_options,
+    )
 
 
 @shows_bp.route("/add", methods=["GET"])

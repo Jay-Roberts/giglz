@@ -5,7 +5,7 @@ Orchestrates: Spotify search → find/create entities → persist show.
 """
 
 from datetime import date
-from db_models import db, City, Venue, Artist, Track, Show, ShowArtist, ShowSource
+from db_models import db, City, Venue, Artist, Track, Show, ShowArtist, ShowSource, ShowStatus, UserShowStatus
 from spotify import SpotifyAPI
 
 
@@ -176,3 +176,31 @@ class ShowService:
     def list_shows(self) -> list[Show]:
         """List all shows, ordered by date."""
         return Show.query.order_by(Show.date.asc()).all()
+
+    def set_show_status(
+        self, user_id: str, show_id: str, status: ShowStatus | None
+    ) -> ShowStatus | None:
+        """Set user's attendance status for a show. None clears it."""
+        existing = UserShowStatus.query.filter_by(
+            user_id=user_id, show_id=show_id
+        ).first()
+
+        if status is None:
+            if existing:
+                db.session.delete(existing)
+                db.session.commit()
+            return None
+
+        if existing:
+            existing.status = status
+        else:
+            record = UserShowStatus(user_id=user_id, show_id=show_id, status=status)
+            db.session.add(record)
+
+        db.session.commit()
+        return status
+
+    def get_user_show_statuses(self, user_id: str) -> dict[str, ShowStatus]:
+        """Get all statuses for a user as {show_id: status} dict."""
+        records = UserShowStatus.query.filter_by(user_id=user_id).all()
+        return {r.show_id: r.status for r in records}

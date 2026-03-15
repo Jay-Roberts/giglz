@@ -32,6 +32,7 @@ class User(db.Model):
     spotify_token = db.relationship("SpotifyToken", back_populates="user", uselist=False)
     playlists = db.relationship("Playlist", back_populates="user")
     loved_tracks = db.relationship("Track", secondary="user_track_love", back_populates="loved_by")
+    show_statuses = db.relationship("UserShowStatus", back_populates="user", cascade="all, delete-orphan")
 
 
 class MagicLinkToken(db.Model):
@@ -60,6 +61,12 @@ class ShowSource(enum.Enum):
     MANUAL = "manual"
     CSV = "csv"
     URL = "url"
+
+
+class ShowStatus(str, enum.Enum):
+    """User's attendance status for a show."""
+    GOING = "going"
+    SKIPPING = "skipping"
 
 
 class City(db.Model):
@@ -115,6 +122,7 @@ class Show(db.Model):
     venue = db.relationship("Venue", back_populates="shows")
     artists = db.relationship("Artist", secondary="show_artist", back_populates="shows")
     playlists = db.relationship("Playlist", secondary="playlist_show", back_populates="shows")
+    user_statuses = db.relationship("UserShowStatus", back_populates="show", cascade="all, delete-orphan")
 
 
 class ShowArtist(db.Model):
@@ -148,3 +156,15 @@ class UserTrackLove(db.Model):
     user_id = db.Column(db.String(36), db.ForeignKey("user.id"), primary_key=True)
     track_id = db.Column(db.String(36), db.ForeignKey("track.id"), primary_key=True)
     loved_at = db.Column(db.DateTime, default=_utcnow)
+
+
+class UserShowStatus(db.Model):
+    """User's attendance status for a show."""
+    __tablename__ = "user_show_status"
+    user_id = db.Column(db.String(36), db.ForeignKey("user.id"), primary_key=True)
+    show_id = db.Column(db.String(36), db.ForeignKey("show.id"), primary_key=True)
+    status = db.Column(db.Enum(ShowStatus), nullable=False)
+    updated_at = db.Column(db.DateTime, default=_utcnow, onupdate=_utcnow)
+
+    user = db.relationship("User", back_populates="show_statuses")
+    show = db.relationship("Show", back_populates="user_statuses")

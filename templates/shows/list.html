@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="shows-page">
+<div class="shows-page"
+     x-data="showsPage()"
+     data-status-options='{{ status_options | tojson }}'
+     data-statuses='{{ statuses | tojson }}'>
     <h1>Shows</h1>
     <a href="{{ url_for('shows.add_form') }}">Add Show</a>
 
@@ -24,6 +27,19 @@
                 <button type="submit">Scout</button>
             </form>
             {% endif %}
+
+            <span class="show-status">
+                <button
+                    @click="setStatus('{{ show.id }}', STATUS.GOING)"
+                    :class="statuses['{{ show.id }}'] === STATUS.GOING ? 'active' : ''">
+                    Going
+                </button>
+                <button
+                    @click="setStatus('{{ show.id }}', STATUS.SKIPPING)"
+                    :class="statuses['{{ show.id }}'] === STATUS.SKIPPING ? 'active' : ''">
+                    Busy
+                </button>
+            </span>
         </li>
         {% endfor %}
     </ul>
@@ -31,4 +47,34 @@
     <p>No shows yet. <a href="{{ url_for('shows.add_form') }}">Add one!</a></p>
     {% endif %}
 </div>
+
+<script>
+function showsPage() {
+    const el = document.querySelector('.shows-page');
+    return {
+        STATUS: JSON.parse(el.dataset.statusOptions),
+        statuses: JSON.parse(el.dataset.statuses),
+
+        async setStatus(showId, status) {
+            // Toggle: if already set, clear it
+            const newStatus = this.statuses[showId] === status ? null : status;
+
+            const res = await fetch(`/api/shows/${showId}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status) {
+                    this.statuses[showId] = data.status;
+                } else {
+                    delete this.statuses[showId];
+                }
+            }
+        }
+    }
+}
+</script>
 {% endblock %}
