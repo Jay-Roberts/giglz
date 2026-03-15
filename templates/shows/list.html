@@ -75,15 +75,9 @@
             <br><a href="{{ show.ticket_url }}" target="_blank">Tickets</a>
             {% endif %}
             <br>
-            {% if show.id in scouting_show_ids %}
-            <form method="POST" action="{{ url_for('playlists.remove_show', show_id=show.id) }}" style="display:inline">
-                <button type="submit">Scouting</button>
-            </form>
-            {% else %}
-            <form method="POST" action="{{ url_for('playlists.add_show', show_id=show.id) }}" style="display:inline">
-                <button type="submit">Scout</button>
-            </form>
-            {% endif %}
+            <button @click="scoutShow('{{ show.id }}')" class="scout-btn">
+                Scout
+            </button>
 
             <span class="show-status">
                 <button
@@ -129,6 +123,17 @@ function showsPage() {
                 } else {
                     delete this.statuses[showId];
                 }
+            }
+        },
+
+        async scoutShow(showId) {
+            const res = await fetch(`/api/shows/${showId}/scout`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (res.ok) {
+                console.log('Scouting started');
             }
         }
     }

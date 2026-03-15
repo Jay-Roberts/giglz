@@ -1,9 +1,10 @@
 """
 Spotify OAuth routes — connect and callback.
 """
-from flask import Blueprint, redirect, url_for, request, flash
+from flask import Blueprint, redirect, url_for, request, flash, session
 from routes.auth import login_required, get_current_user
 from spotify.oauth import get_auth_url, exchange_code
+from services.auth import disconnect_spotify
 from db_models import db, SpotifyToken
 
 spotify_bp = Blueprint("spotify", __name__, url_prefix="/spotify")
@@ -55,4 +56,18 @@ def callback():
     db.session.commit()
 
     flash("Spotify connected!", "success")
+    return redirect(url_for("shows.list_shows"))
+
+
+@spotify_bp.route("/disconnect", methods=["POST"])
+@login_required
+def disconnect():
+    """Disconnect Spotify — remove tokens."""
+    user_id = session.get("user_id")
+
+    # Command
+    disconnect_spotify(user_id)
+
+    # Render
+    flash("Spotify disconnected", "info")
     return redirect(url_for("shows.list_shows"))

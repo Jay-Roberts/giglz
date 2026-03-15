@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="board">
+    <h1>Your Board</h1>
+
+    <!-- Calendar Section -->
+    <section class="board-section">
+        <h2>Shows You're Going To</h2>
+        {% if calendar_shows %}
+        <ul class="calendar-list">
+            {% for date, shows in calendar_shows.items() %}
+            <li>
+                <strong>{{ date.strftime('%a %b %d') }}</strong>
+                {% for show in shows %}
+                <div class="calendar-show">
+                    {{ show.artists | map(attribute='name') | join(', ') }}
+                    @ {{ show.venue.name }}
+                </div>
+                {% endfor %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No shows marked as going. <a href="{{ url_for('shows.list_shows') }}">Browse shows</a></p>
+        {% endif %}
+    </section>
+
+    <!-- Playlists Section -->
+    <section class="board-section">
+        <h2>Your Playlists</h2>
+        {% if playlists %}
+        <ul>
+            {% for playlist in playlists %}
+            <li>{{ playlist.name }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No playlists yet.</p>
+        {% endif %}
+    </section>
+
+    <!-- Loved Tracks Section -->
+    <section class="board-section">
+        <h2>Recently Loved</h2>
+        {% if loved_tracks %}
+        <ul>
+            {% for item in loved_tracks %}
+            <li>
+                {{ item.track.name }} — {{ item.track.artist.name }}
+                <small>({{ item.loved_at.strftime('%b %d') }})</small>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No loved tracks yet. Listen and hit the heart!</p>
+        {% endif %}
+    </section>
+
+    <!-- Top Artists Section -->
+    <section class="board-section">
+        <h2>Artists You Love</h2>
+        {% if top_artists %}
+        <ul>
+            {% for item in top_artists %}
+            <li>{{ item.artist.name }} ({{ item.love_count }} tracks)</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>Love some tracks to see your top artists.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

@@ -13,7 +13,13 @@
 <body>
     <nav>
         <a href="{{ url_for('shows.list_shows') }}">Shows</a>
+        <a href="{{ url_for('board.index') }}">Board</a>
         <a href="{{ url_for('playlists.scouting') }}">Scouting</a>
+        <span style="margin-left:auto;">
+            <form method="POST" action="{{ url_for('auth.logout') }}" style="display:inline;">
+                <button type="submit">Logout</button>
+            </form>
+        </span>
     </nav>
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
@@ -40,10 +46,20 @@
                     style="margin-left:10px;">
                     ♥
                 </button>
+                <template x-if="showContext">
+                    <button @click="scoutShow(showContext.show_id)" style="margin-left:10px;">
+                        Scout <span x-text="showContext.show_name"></span>
+                    </button>
+                </template>
             </div>
         </template>
         <template x-if="connected && !playing">
             <span>Not playing</span>
+        </template>
+        <template x-if="connected">
+            <form method="POST" action="/spotify/disconnect" style="display:inline; margin-left:10px;">
+                <button type="submit">Disconnect Spotify</button>
+            </form>
         </template>
     </footer>
 
@@ -95,6 +111,17 @@
                 if (res.ok) {
                     const data = await res.json();
                     this.track.loved = data.loved;
+                }
+            },
+
+            async scoutShow(showId) {
+                const res = await fetch(`/api/shows/${showId}/scout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (res.ok) {
+                    console.log('Scouting started');
                 }
             }
         }

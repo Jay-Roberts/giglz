@@ -5,6 +5,7 @@ Handles Now Scouting playlist: get/create, add/remove shows, get tracks.
 """
 
 from db_models import db, Playlist, PlaylistShow, Track
+from spotify.user_client import SpotifyUserClient, SpotifyNotConnectedError
 
 
 class PlaylistService:
@@ -74,3 +75,20 @@ class PlaylistService:
         """Get set of show IDs in playlist (for template context)."""
         rows = PlaylistShow.query.filter_by(playlist_id=playlist_id).all()
         return {row.show_id for row in rows}
+
+    def ensure_spotify_playlist(self, user_id: str, playlist: Playlist) -> str | None:
+        """
+        Create Spotify playlist if needed, return spotify_playlist_id.
+        Returns None if user not connected to Spotify.
+        """
+        if playlist.spotify_playlist_id:
+            return playlist.spotify_playlist_id
+
+        try:
+            client = SpotifyUserClient(user_id)
+            spotify_id = client.create_playlist(playlist.name)
+            playlist.spotify_playlist_id = spotify_id
+            db.session.commit()
+            return spotify_id
+        except SpotifyNotConnectedError:
+            return None

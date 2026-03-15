@@ -72,3 +72,23 @@ class SpotifyUserClient:
         self._refresh_if_needed()
         self._sp = spotipy.Spotify(auth=self._token.access_token)
         self._sp.current_user_saved_tracks_add([spotify_track_id])
+
+    def create_playlist(self, name: str, public: bool = True) -> str:
+        """Create a playlist on Spotify, return its ID."""
+        self._refresh_if_needed()
+        self._sp = spotipy.Spotify(auth=self._token.access_token)
+        user_id = self._sp.current_user()["id"]
+        result = self._sp.user_playlist_create(user_id, name, public=public)
+        return result["id"]
+
+    def replace_playlist_tracks(self, playlist_id: str, track_uris: list[str]) -> None:
+        """Replace all tracks in a playlist."""
+        self._refresh_if_needed()
+        self._sp = spotipy.Spotify(auth=self._token.access_token)
+        self._sp.playlist_replace_items(playlist_id, track_uris)
+
+    def start_playback(self, context_uri: str | None = None, uris: list[str] | None = None) -> None:
+        """Start playback on user's active device."""
+        self._refresh_if_needed()
+        self._sp = spotipy.Spotify(auth=self._token.access_token)
+        self._sp.start_playback(context_uri=context_uri, uris=uris)

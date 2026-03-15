@@ -1,12 +1,14 @@
 """
 API routes — JSON endpoints for player polling.
 """
-from flask import Blueprint, jsonify, session, request
+from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 from db_models import Track, ShowStatus
+from routes.auth import api_login_required
 from spotify.user_client import SpotifyUserClient, SpotifyNotConnectedError
 from services.loves import LoveService
 from services.shows import ShowService
+from services.scouting import ScoutingService
 from schemas import (
     NowPlayingResponse, TrackState, ShowContext,
     LoveTrackRequest, LoveTrackResponse,
@@ -19,12 +21,9 @@ api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 
 @api_bp.route("/now-playing")
-def now_playing():
+@api_login_required
+def now_playing(user_id):
     """Return current track JSON for player polling."""
-    user_id = session.get("user_id")
-    if not user_id:
-        return jsonify({"error": "Not authenticated"}), 401
-
     try:
         client = SpotifyUserClient(user_id)
     except SpotifyNotConnectedError:
@@ -72,12 +71,9 @@ def _get_show_context(spotify_track_id: str) -> ShowContext | None:
 
 
 @api_bp.route("/love", methods=["POST"])
-def toggle_love():
+@api_login_required
+def toggle_love(user_id):
     """Toggle love state on a track."""
-    user_id = session.get("user_id")
-    if not user_id:
-        return jsonify({"error": "Not authenticated"}), 401
-
     # Parse
     try:
         req = LoveTrackRequest.model_validate_json(request.data)
@@ -94,12 +90,9 @@ def toggle_love():
 
 
 @api_bp.route("/shows/<show_id>/status", methods=["POST"])
-def set_show_status(show_id: str):
+@api_login_required
+def set_show_status(user_id, show_id: str):
     """Set attendance status for a show."""
-    user_id = session.get("user_id")
-    if not user_id:
-        return jsonify({"error": "Not authenticated"}), 401
-
     # Parse
     try:
         req = SetShowStatusRequest.model_validate_json(request.data)
@@ -119,3 +112,16 @@ def set_show_status(show_id: str):
         status=new_status.value if new_status else None
     )
     return jsonify(response.model_dump())
+
+
+@api_bp.route("/shows/<show_id>/scout", methods=["POST"])
+@api_login_required
+def scout_show(user_id, show_id: str):
+    """Scout a show — swap playlist and start playback."""
+    service = ScoutingService()
+    success = service.scout_show(user_id, show_id)
+
+    if success:
+        return jsonify({"status": "scouting", "show_id": show_id})
+    else:
+        return jsonify({"error": "Could not start scouting"}), 400

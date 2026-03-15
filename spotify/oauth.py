@@ -9,6 +9,7 @@ SCOPES = [
     "user-read-currently-playing",
     "user-library-modify",
     "playlist-modify-public",
+    "user-modify-playback-state",  # play, pause, transfer
 ]
 
 

@@ -1,6 +1,6 @@
 import secrets
 from datetime import datetime, timedelta, timezone
-from db_models import db, User, MagicLinkToken
+from db_models import db, User, MagicLinkToken, SpotifyToken
 from services.email import send_magic_link
 
 
@@ -77,3 +77,9 @@ def verify_token(token: str) -> User:
     db.session.commit()
 
     return magic_token.user
+
+
+def disconnect_spotify(user_id: str) -> None:
+    """Remove Spotify tokens for a user."""
+    SpotifyToken.query.filter_by(user_id=user_id).delete()
+    db.session.commit()

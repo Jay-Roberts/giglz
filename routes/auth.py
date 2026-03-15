@@ -31,13 +31,27 @@ def get_current_user():
 
 
 def login_required(f):
-    """Decorator to require authentication."""
+    """Decorator to require authentication. Redirects to login if not authenticated."""
 
     @wraps(f)
     def decorated(*args, **kwargs):
         if get_current_user() is None:
             return redirect(url_for("auth.login_form"))
         return f(*args, **kwargs)
+
+    return decorated
+
+
+def api_login_required(f):
+    """Decorator for API routes. Returns JSON 401 if not authenticated, injects user_id."""
+    from flask import jsonify
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Not authenticated"}), 401
+        return f(user_id, *args, **kwargs)
 
     return decorated
 
