@@ -31,6 +31,7 @@ class User(db.Model):
     magic_link_tokens = db.relationship("MagicLinkToken", back_populates="user")
     spotify_token = db.relationship("SpotifyToken", back_populates="user", uselist=False)
     playlists = db.relationship("Playlist", back_populates="user")
+    loved_tracks = db.relationship("Track", secondary="user_track_love", back_populates="loved_by")
 
 
 class MagicLinkToken(db.Model):
@@ -100,6 +101,7 @@ class Track(db.Model):
     preview_url = db.Column(db.String(512), nullable=True)
 
     artist = db.relationship("Artist", back_populates="tracks")
+    loved_by = db.relationship("User", secondary="user_track_love", back_populates="loved_tracks")
 
 
 class Show(db.Model):
@@ -138,3 +140,11 @@ class PlaylistShow(db.Model):
     playlist_id = db.Column(db.String(36), db.ForeignKey("playlist.id"), primary_key=True)
     show_id = db.Column(db.String(36), db.ForeignKey("show.id"), primary_key=True)
     added_at = db.Column(db.DateTime, default=_utcnow)
+
+
+class UserTrackLove(db.Model):
+    """User loved a track. M2M join table."""
+    __tablename__ = "user_track_love"
+    user_id = db.Column(db.String(36), db.ForeignKey("user.id"), primary_key=True)
+    track_id = db.Column(db.String(36), db.ForeignKey("track.id"), primary_key=True)
+    loved_at = db.Column(db.DateTime, default=_utcnow)

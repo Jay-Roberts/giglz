@@ -66,3 +66,9 @@ class SpotifyUserClient:
             progress_ms=result.get("progress_ms", 0),
             duration_ms=item.get("duration_ms", 0),
         )
+
+    def save_track(self, spotify_track_id: str) -> None:
+        """Add track to user's Saved Tracks (Liked Songs)."""
+        self._refresh_if_needed()
+        self._sp = spotipy.Spotify(auth=self._token.access_token)
+        self._sp.current_user_saved_tracks_add([spotify_track_id])

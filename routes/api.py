@@ -1,10 +1,12 @@
 """
 API routes — JSON endpoints for player polling.
 """
-from flask import Blueprint, jsonify, session
+from flask import Blueprint, jsonify, session, request
+from pydantic import ValidationError
 from db_models import Track
 from spotify.user_client import SpotifyUserClient, SpotifyNotConnectedError
-from schemas import NowPlayingResponse, TrackState, ShowContext
+from services.loves import LoveService
+from schemas import NowPlayingResponse, TrackState, ShowContext, LoveTrackRequest, LoveTrackResponse
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -58,3 +60,25 @@ def _get_show_context(spotify_track_id: str) -> ShowContext | None:
         show_id=show.id,
         show_name=f"{artist.name} @ {show.venue.name}",
     )
+
+
+@api_bp.route("/love", methods=["POST"])
+def toggle_love():
+    """Toggle love state on a track."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Not authenticated"}), 401
+
+    # Parse
+    try:
+        req = LoveTrackRequest.model_validate_json(request.data)
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 400
+
+    # Command
+    service = LoveService()
+    is_now_loved = service.toggle_love(user_id, req.spotify_track_id)
+
+    # Render
+    response = LoveTrackResponse(loved=is_now_loved, spotify_track_id=req.spotify_track_id)
+    return jsonify(response.model_dump())

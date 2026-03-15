@@ -118,3 +118,18 @@ class NowPlayingResponse(BaseModel):
     playing: bool = False
     track: TrackState | None = None
     show_context: ShowContext | None = None
+
+
+# =============================================================================
+# LOVE
+# =============================================================================
+
+class LoveTrackRequest(BaseModel):
+    """POST /api/love request."""
+    spotify_track_id: str
+
+
+class LoveTrackResponse(BaseModel):
+    """POST /api/love response."""
+    loved: bool
+    spotify_track_id: str

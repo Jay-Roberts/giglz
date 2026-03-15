@@ -29,6 +29,13 @@
                     <span x-text="track.name"></span> —
                     <span x-text="track.artist"></span>
                 </div>
+                <button
+                    @click="toggleLove()"
+                    :class="track?.loved ? 'loved' : ''"
+                    :disabled="!track"
+                    style="margin-left:10px;">
+                    ♥
+                </button>
             </div>
         </template>
         <template x-if="connected && !playing">
@@ -69,6 +76,21 @@
                     this.showContext = data.show_context;
                 } catch (e) {
                     console.error('Poll failed', e);
+                }
+            },
+
+            async toggleLove() {
+                if (!this.track) return;
+
+                const res = await fetch('/api/love', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ spotify_track_id: this.track.id })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    this.track.loved = data.loved;
                 }
             }
         }
