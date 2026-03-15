@@ -5,6 +5,7 @@ Orchestrates: Spotify search → find/create entities → persist show.
 """
 
 from datetime import date
+from sqlalchemy.orm import joinedload
 from db_models import db, City, Venue, Artist, Track, Show, ShowArtist, ShowSource, ShowStatus, UserShowStatus
 from spotify import SpotifyAPI
 
@@ -204,3 +205,45 @@ class ShowService:
         """Get all statuses for a user as {show_id: status} dict."""
         records = UserShowStatus.query.filter_by(user_id=user_id).all()
         return {r.show_id: r.status for r in records}
+
+    def list_shows_filtered(
+        self,
+        user_id: str,
+        status_filter: ShowStatus | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        heat_min: int = 0,
+    ) -> list[tuple[Show, int]]:
+        """Return shows with computed heat, filtered and sorted."""
+        # Eager load artists to avoid N+1
+        query = Show.query.options(joinedload(Show.artists))
+
+        # Date filters
+        if date_from:
+            query = query.filter(Show.date >= date_from)
+        if date_to:
+            query = query.filter(Show.date <= date_to)
+
+        shows = query.order_by(Show.date.asc()).all()
+
+        # Get user's statuses
+        user_statuses = self.get_user_show_statuses(user_id)
+
+        # Compute heat + apply filters
+        results = []
+        for show in shows:
+            heat = sum(a.love_count for a in show.artists)
+
+            # Heat filter
+            if heat < heat_min:
+                continue
+
+            # Status filter
+            if status_filter:
+                show_status = user_statuses.get(show.id)
+                if show_status != status_filter:
+                    continue
+
+            results.append((show, heat))
+
+        return results

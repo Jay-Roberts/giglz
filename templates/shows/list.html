@@ -1,5 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+.show-filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    align-items: end;
+}
+.show-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.show-card .heat {
+    color: #e74c3c;
+    font-weight: bold;
+}
+.show-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+</style>
+
 <div class="shows-page"
      x-data="showsPage()"
      data-status-options='{{ status_options | tojson }}'
@@ -7,12 +31,45 @@
     <h1>Shows</h1>
     <a href="{{ url_for('shows.add_form') }}">Add Show</a>
 
-    {% if shows %}
+    <form method="GET" class="show-filters">
+        <label>
+            Status:
+            <select name="status">
+                <option value="">All</option>
+                <option value="going" {{ 'selected' if filters.status == 'going' else '' }}>Going</option>
+                <option value="skipping" {{ 'selected' if filters.status == 'skipping' else '' }}>Busy</option>
+            </select>
+        </label>
+
+        <label>
+            From:
+            <input type="date" name="date_from" value="{{ filters.date_from or '' }}">
+        </label>
+
+        <label>
+            To:
+            <input type="date" name="date_to" value="{{ filters.date_to or '' }}">
+        </label>
+
+        <label>
+            Min heat:
+            <input type="number" name="heat_min" value="{{ filters.heat_min }}" min="0" style="width:60px;">
+        </label>
+
+        <button type="submit">Filter</button>
+        <a href="{{ url_for('shows.list_shows') }}">Clear</a>
+    </form>
+
+    {% if shows_with_heat %}
     <ul class="show-list">
-        {% for show in shows %}
+        {% for show, heat in shows_with_heat %}
         <li class="show-card">
-            <strong>{{ show.artists | map(attribute='name') | join(', ') }}</strong>
-            <br>
+            <div class="show-header">
+                <strong>{{ show.artists | map(attribute='name') | join(', ') }}</strong>
+                <span class="heat" title="Heat score">
+                    {% if heat > 0 %}{{ heat }} &#9829;{% else %}&mdash;{% endif %}
+                </span>
+            </div>
             {{ show.date.strftime('%Y-%m-%d') }} @ {{ show.venue.name }}, {{ show.venue.city.name }}
             {% if show.ticket_url %}
             <br><a href="{{ show.ticket_url }}" target="_blank">Tickets</a>
@@ -44,7 +101,7 @@
         {% endfor %}
     </ul>
     {% else %}
-    <p>No shows yet. <a href="{{ url_for('shows.add_form') }}">Add one!</a></p>
+    <p>No shows match your filters. <a href="{{ url_for('shows.list_shows') }}">Clear filters</a> or <a href="{{ url_for('shows.add_form') }}">add a show</a>.</p>
     {% endif %}
 </div>
 

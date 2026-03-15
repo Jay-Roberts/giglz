@@ -150,3 +150,40 @@ class ShowStatusResponse(BaseModel):
     """POST /api/shows/{id}/status response."""
     show_id: str
     status: str | None
+
+
+# =============================================================================
+# SHOWS FILTERING
+# =============================================================================
+
+class ShowsFilterRequest(BaseModel):
+    """Query params for /shows/ filtering."""
+    status: Literal["going", "skipping"] | None = None
+    date_from: date | None = None
+    date_to: date | None = None
+    heat_min: int = 0
+
+    @classmethod
+    def from_args(cls, args) -> "ShowsFilterRequest":
+        """Parse from Flask request.args."""
+        date_from = None
+        date_to = None
+
+        if args.get("date_from"):
+            try:
+                date_from = date.fromisoformat(args.get("date_from"))
+            except ValueError:
+                pass
+
+        if args.get("date_to"):
+            try:
+                date_to = date.fromisoformat(args.get("date_to"))
+            except ValueError:
+                pass
+
+        return cls(
+            status=args.get("status") or None,
+            date_from=date_from,
+            date_to=date_to,
+            heat_min=args.get("heat_min", 0, type=int),
+        )
