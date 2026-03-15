@@ -104,6 +104,7 @@ class TrackState(BaseModel):
     album_art: str | None
     progress_ms: int
     duration_ms: int
+    loved: bool = False
 
 
 class ShowContext(BaseModel):

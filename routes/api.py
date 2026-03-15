@@ -8,6 +8,8 @@ from spotify.user_client import SpotifyUserClient, SpotifyNotConnectedError
 from services.loves import LoveService
 from schemas import NowPlayingResponse, TrackState, ShowContext, LoveTrackRequest, LoveTrackResponse
 
+_love_service = LoveService()
+
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 
@@ -28,6 +30,7 @@ def now_playing():
         return jsonify(NowPlayingResponse(connected=True, playing=False).model_dump())
 
     show_context = _get_show_context(playback.track_id)
+    is_loved = _love_service.is_loved(user_id, playback.track_id)
 
     response = NowPlayingResponse(
         connected=True,
@@ -39,6 +42,7 @@ def now_playing():
             album_art=playback.album_art,
             progress_ms=playback.progress_ms,
             duration_ms=playback.duration_ms,
+            loved=is_loved,
         ),
         show_context=show_context,
     )
