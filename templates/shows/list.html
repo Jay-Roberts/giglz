@@ -5,7 +5,10 @@
      data-status-options='{{ status_options | tojson }}'
      data-statuses='{{ statuses | tojson }}'>
     <h1 class="text-2xl font-bold mb-4">Shows</h1>
-    <a href="{{ url_for('shows.add_form') }}" class="btn-primary inline-block mb-6">Add Show</a>
+    <div class="flex gap-3 mb-6">
+        <a href="{{ url_for('shows.add_form') }}" class="btn-primary">Add Show</a>
+        <a href="{{ url_for('imports.upload_form') }}" class="btn-secondary">Import</a>
+    </div>
 
     <form method="GET" class="flex flex-wrap gap-4 items-end mb-6">
         <div>

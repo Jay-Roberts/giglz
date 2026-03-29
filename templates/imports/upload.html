@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-lg">
+    <h1 class="text-2xl font-bold mb-6">Import Shows</h1>
+    <form method="POST" action="{{ url_for('imports.upload') }}" enctype="multipart/form-data" class="space-y-4">
+        <div>
+            <label for="csv_file" class="label">CSV File</label>
+            <input type="file" name="csv_file" id="csv_file" accept=".csv" class="input w-full" required>
+        </div>
+        <div class="text-text-muted text-sm">
+            <p class="mb-2">CSV format:</p>
+            <code class="block bg-surface p-2 rounded text-xs">artists,venue,city,date,ticket_url<br>"Militarie Gun, ZULU",The Earl,Atlanta,2026-04-15,https://...</code>
+            <p class="mt-2">Required: artists, venue, city, date. Optional: ticket_url</p>
+        </div>
+        <div class="flex items-center gap-4 pt-2">
+            <button type="submit" class="btn-primary">Import</button>
+            <a href="{{ url_for('shows.list_shows') }}" class="text-accent hover:underline">Back to shows</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

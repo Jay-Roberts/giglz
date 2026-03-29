@@ -8,7 +8,7 @@ Auth: MagicLinkToken, SpotifyToken
 All IDs are UUIDs stored as strings. Timestamps are naive UTC for SQLite compatibility.
 """
 from datetime import datetime, timezone
-import enum
+from enum import StrEnum, auto
 
 from flask_sqlalchemy import SQLAlchemy
 import uuid
@@ -57,16 +57,28 @@ class SpotifyToken(db.Model):
     user = db.relationship("User", back_populates="spotify_token")
 
 
-class ShowSource(enum.Enum):
-    MANUAL = "manual"
-    CSV = "csv"
-    URL = "url"
+class ShowSource(StrEnum):
+    MANUAL = auto()
+    CSV = auto()
+    URL = auto()
 
 
-class ShowStatus(str, enum.Enum):
+class ImportStatus(StrEnum):
+    PENDING = auto()
+    SUCCESS = auto()
+    FAILED = auto()
+    SKIPPED = auto()
+
+
+class ImportSourceType(StrEnum):
+    CSV_STRUCTURED = auto()
+    URL = auto()  # phase 2
+
+
+class ShowStatus(StrEnum):
     """User's attendance status for a show."""
-    GOING = "going"
-    SKIPPING = "skipping"
+    GOING = auto()
+    SKIPPING = auto()
 
 
 class City(db.Model):
@@ -168,3 +180,28 @@ class UserShowStatus(db.Model):
 
     user = db.relationship("User", back_populates="show_statuses")
     show = db.relationship("Show", back_populates="user_statuses")
+
+
+class ImportBatch(db.Model):
+    __tablename__ = "import_batch"
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=_utcnow)
+
+    user = db.relationship("User")
+    records = db.relationship("ImportRecord", back_populates="batch")
+
+
+class ImportRecord(db.Model):
+    __tablename__ = "import_record"
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    batch_id = db.Column(db.String(36), db.ForeignKey("import_batch.id"), nullable=False)
+    source_type = db.Column(db.Enum(ImportSourceType), default=ImportSourceType.CSV_STRUCTURED)
+    input_data = db.Column(db.JSON, nullable=False)
+    status = db.Column(db.Enum(ImportStatus), default=ImportStatus.PENDING)
+    error = db.Column(db.String(512), nullable=True)
+    show_id = db.Column(db.String(36), db.ForeignKey("show.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=_utcnow)
+
+    batch = db.relationship("ImportBatch", back_populates="records")
+    show = db.relationship("Show")

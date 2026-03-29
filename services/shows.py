@@ -31,6 +31,7 @@ class ShowService:
         venue_name: str,
         city_name: str,
         ticket_url: str | None = None,
+        source: ShowSource = ShowSource.MANUAL,
     ) -> Show:
         """Add a show with artists, searching Spotify for each."""
 
@@ -57,7 +58,7 @@ class ShowService:
             date=show_date,
             venue_id=venue.id,
             ticket_url=ticket_url,
-            source=ShowSource.MANUAL,
+            source=source,
         )
         db.session.add(show)
         db.session.flush()  # get show.id

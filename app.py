@@ -7,6 +7,7 @@ from routes.playlists import playlists_bp
 from routes.spotify import spotify_bp
 from routes.api import api_bp
 from routes.board import board_bp
+from routes.imports import imports_bp
 
 
 def create_app(config_overrides: dict | None = None):
@@ -31,6 +32,7 @@ def create_app(config_overrides: dict | None = None):
     app.register_blueprint(spotify_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(board_bp)
+    app.register_blueprint(imports_bp)
 
     @app.route("/")
     def home():
