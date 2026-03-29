@@ -29,4 +29,4 @@ USER appuser
 ENV PORT=8080
 EXPOSE $PORT
 
-CMD gunicorn -b 0.0.0.0:$PORT "app:create_app()"
+CMD ["/bin/sh", "-c", "gunicorn -b 0.0.0.0:${PORT} 'app:create_app()'"]
