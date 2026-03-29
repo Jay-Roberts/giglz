@@ -1,0 +1,2 @@
+[deploy]
+startCommand = "gunicorn 'app:create_app()'"
