@@ -82,7 +82,7 @@ class ShowService:
         return city
 
     def _find_or_create_venue(self, name: str, city_id: str) -> Venue:
-        # TODO: We need better city handeling. Paris -> TX or FR?
+        # TODO: We need better city handling. Paris -> TX or FR?
         name = name.strip()
         venue = Venue.query.filter(
             db.func.lower(Venue.name) == name.lower(), Venue.city_id == city_id

@@ -19,7 +19,7 @@ class ScoutingService:
         # Get show with artists and tracks
         show = Show.query.options(
             joinedload(Show.artists).joinedload(Artist.tracks)
-        ).get(show_id)
+        ).filter_by(id=show_id).one_or_none()
 
         if not show:
             return False
