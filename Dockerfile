@@ -26,6 +26,7 @@ RUN mkdir -p /app/data
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
-EXPOSE 8080
+ENV PORT=8080
+EXPOSE $PORT
 
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:create_app()"]
+CMD gunicorn -b 0.0.0.0:$PORT "app:create_app()"
