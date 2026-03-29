@@ -15,6 +15,7 @@ dependencies = [
     "rapidfuzz>=3.14.3",
     "resend>=2.23.0",
     "spotipy>=2.26.0",
+    "gunicorn>=23.0.0",
 ]
 
 [tool.pytest.ini_options]
